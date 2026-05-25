@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "rust-skills": {
+      "source": "leonardomso/rust-skills",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "b2e88183a16ff8fa1564eaabb25deeee8521dfc57d307131a1e4d797b19ae7bb"
+    },
+    "skill-creator": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/skill-creator/SKILL.md",
+      "computedHash": "7e3c9cd74e9e2b4828527a857170e86310f2dab5ea8030a9043df2c7e6c88857"
+    }
+  }
+}
