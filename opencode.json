@@ -1,0 +1,48 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "mcp": {
+        "github": {
+            "type": "local",
+            "command": [
+                "npx",
+                "-y",
+                "@modelcontextprotocol/server-github"
+            ],
+            "environment": {
+                "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+            }
+        },
+        "postgres": {
+            "type": "local",
+            "command": [
+                "npx",
+                "-y",
+                "@modelcontextprotocol/server-postgres",
+                "postgres://postgres:{env:DB_PASSWORD}@localhost:5432/nebripop"
+            ],
+            "enabled": true
+        },
+        "meilisearch": {
+            "type": "local",
+            "command": [
+                "uvx",
+                "meilisearch-mcp"
+            ],
+            "environment": {
+                "MEILI_HTTP_ADDR": "{env:MEILISEARCH_URL}",
+                "MEILI_MASTER_KEY": "{env:MEILISEARCH_MASTER_KEY}"
+            },
+            "enabled": true
+        },
+        "stripe": {
+            "type": "remote",
+            "url": "https://mcp.stripe.com",
+            "enabled": true
+        },
+        "linear": {
+            "type": "remote",
+            "url": "https://mcp.linear.app/mcp",
+            "enabled": true
+        }
+    }
+}
