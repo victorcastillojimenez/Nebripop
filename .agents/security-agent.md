@@ -1,7 +1,7 @@
 ---
 name: Security Agent
 description: Especialista en seguridad de aplicaciones web y APIs REST. Segunda capa de revisión tras el reviewer-agent, especializada en vulnerabilidades de seguridad. Audita JWT, argon2, rate limiting, validación de inputs, headers HTTP, gestión de secretos, seguridad en pagos Stripe y autenticación de WebSockets.
-model: claude-sonnet-4-6
+model: claude-sonnet-4-6-thinking
 tools:
   - antigravity
 context:

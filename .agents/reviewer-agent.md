@@ -1,7 +1,7 @@
 ---
 name: Reviewer Agent
 description: Gate de calidad obligatorio antes de cada merge. Revisa el código generado por los agentes de OpenCode verificando clean code, principios SOLID, arquitectura hexagonal y ausencia de unwrap() en producción. Aprueba o rechaza con comentarios accionables específicos por archivo y línea.
-model: claude-sonnet-4-6
+model: claude-sonnet-4-6-thinking
 tool: Antigravity
 context:
   - project-context.md
