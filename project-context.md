@@ -14,7 +14,7 @@
 
 ## Stack técnico
 - **Backend:** Rust, Axum, SQLx, Tokio
-- **Frontend:** Leptos (WASM)
+- **Frontend:** Askama templates + TailwindCSS via CDN + JavaScript vanilla
 - **Base de datos:** PostgreSQL
 - **Autenticación:** JWT con jsonwebtoken + argon2
 - **Búsqueda:** MeiliSearch
