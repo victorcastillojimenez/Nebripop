@@ -16,7 +16,7 @@ Al utilizar esta skill, el agente debe regirse por los siguientes principios:
 1. **Cero Placeholders y Código Incompleto**: Toda tabla, endpoint, clase, relación o flujo debe documentarse por completo. No se permite el uso de `"..."`, `"por implementar"`, o `"etc."`.
 2. **Idioma**: Todo el documento `docs/architecture.md` debe redactarse en **español técnico**, manteniendo los términos del stack en inglés (ej: *crates*, *endpoints*, *handlers*, *middleware*).
 3. **Diagramas**: Los diagramas de arquitectura y secuencia deben representarse en texto limpio/ASCII o utilizando la sintaxis de **Mermaid.js** bien formateada, garantizando legibilidad inmediata.
-4. **Coherencia Absoluta**: El diseño debe alinearse al 100% con `docs/PRD.md` y `project-context.md` (arquitectura hexagonal en Rust, Axum, PostgreSQL, Leptos en WASM, Stripe, MeiliSearch, Cloudinary, y WebSockets).
+4. **Coherencia Absoluta**: El diseño debe alinearse al 100% con `docs/PRD.md` y `project-context.md` (arquitectura hexagonal en Rust, Axum, PostgreSQL, Askama templates, Stripe, MeiliSearch, Cloudinary, y WebSockets).
 
 ---
 
@@ -30,7 +30,7 @@ Debe guiar la creación de una vista arquitectónica que muestre el flujo desde 
 
 - **Contexto de Sistema**: Mostrar cómo interactúan los actores (Usuario Anónimo, Usuario Registrado Comprador/Vendedor, Administrador) con el sistema Nebripop y cómo este se conecta a las APIs externas (Stripe, Cloudinary, MeiliSearch).
 - **Contenedores**: Detallar los límites físicos del software:
-  - **Leptos Frontend**: SPA compilado en WASM que corre en el navegador del cliente.
+  - **Askama**: templates HTML server-side renderizados por Axum, con estilos vía TailwindCSS CDN e interactividad en JavaScript vanilla.
   - **Axum API Backend**: Servidor HTTP asíncrono y WebSocket en Rust.
   - **PostgreSQL Database**: Persistencia relacional de datos.
   - **MeiliSearch Engine**: Motor de búsqueda rápida.
@@ -40,7 +40,7 @@ Debe guiar la creación de una vista arquitectónica que muestre el flujo desde 
 *Ejemplo de representación C4 sugerida en Mermaid:*
 ```mermaid
 graph TD
-    User([Usuario Comprador/Vendedor]) -->|HTTPS / WSS| FE[Leptos SPA WASM - Cliente]
+    User([Usuario Comprador/Vendedor]) -->|HTTPS / WSS| FE[Askama Templates - Server-side HTML]
     FE -->|API REST / WS| BE[Axum API Gateway - Backend]
     
     subgraph Rust Cargo Workspace [Axum Backend Components]
