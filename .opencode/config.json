@@ -1,0 +1,16 @@
+{
+    "mcps": {
+        "github": {
+            "type": "github",
+            "token": "${GITHUB_TOKEN}"
+        },
+        "linear": {
+            "type": "linear",
+            "apiKey": "${LINEAR_API_KEY}"
+        },
+        "postgres": {
+            "type": "postgres",
+            "connectionString": "${DATABASE_URL}"
+        }
+    }
+}
