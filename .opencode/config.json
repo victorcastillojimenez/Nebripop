@@ -11,6 +11,17 @@
         "postgres": {
             "type": "postgres",
             "connectionString": "${DATABASE_URL}"
+        },
+        "cloudinary": {
+            "type": "cloudinary",
+            "cloudName": "${CLOUDINARY_CLOUD_NAME}",
+            "apiKey": "${CLOUDINARY_API_KEY}",
+            "apiSecret": "${CLOUDINARY_API_SECRET}"
+        },
+        "meilisearch": {
+            "type": "meilisearch",
+            "host": "${MEILISEARCH_URL}",
+            "apiKey": "${MEILISEARCH_MASTER_KEY}"
         }
     }
 }
