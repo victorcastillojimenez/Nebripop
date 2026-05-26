@@ -1,6 +1,6 @@
 ---
 name: github-actions-rust
-description: Guía completa y plantilla lista para configurar el pipeline CI/CD en GitHub Actions para el proyecto Rust (Axum + Leptos + SQLx) de Nebripop. Úsala siempre que el usuario mencione integración continua, despliegue continuo, GitHub Actions, configurar workflows, testeo en la nube, optimizar tiempos de build en CI, compilar clippy, configurar base de datos en GitHub Actions o desplegar automáticamente en Railway/Fly.io.
+description: Guía completa y plantilla lista para configurar el pipeline CI/CD en GitHub Actions para el proyecto Rust (Axum + Askama + SQLx) de Nebripop. Úsala siempre que el usuario mencione integración continua, despliegue continuo, GitHub Actions, configurar workflows, testeo en la nube, optimizar tiempos de build en CI, compilar clippy, configurar base de datos en GitHub Actions o desplegar automáticamente en Railway/Fly.io.
 ---
 
 # Skill de GitHub Actions & CI/CD para Rust — Nebripop
@@ -28,7 +28,7 @@ El pipeline CI/CD de Nebripop debe constar de 4 fases o trabajos (*jobs*) encade
 graph TD
     fmt[Format Check] --> clippy[Linter: Clippy]
     clippy --> test[Test: Postgres Container]
-    test --> build[Build: Axum + Leptos]
+    test --> build[Build: Axum + Askama]
     build --> deploy[Deploy: Railway/Fly.io]
 ```
 

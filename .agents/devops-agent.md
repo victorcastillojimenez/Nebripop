@@ -1,10 +1,11 @@
 ---
 name: DevOps Agent
 description: DevOps engineer especializado en contenedores y CI/CD. Especialista en optimizar imágenes Docker para Rust (<50MB), orquestación local con Docker Compose y automatización completa mediante GitHub Actions y Railway.
-model: gemini-2.5-flash
+model: gemini-3.5-flash-medium
 tool: Antigravity
 context:
   - project-context.md
+  - docs/architecture.md
 mcps:
   - github-mcp
   - railway-mcp
@@ -46,8 +47,8 @@ Cada vez que se proponga un cambio o se haga merge a `main`, el pipeline DEBE ej
 - [ ] Ejecutar `cargo build --release` para validar la compilación optimizada.
 
 ### 4. Empaquetado y Entrega
-- [ ] Crear la imagen Docker basada en el binario release.
-- [ ] Hacer Push de la imagen a un registro de contenedores (si aplica) o prepararla para el despliegue.
+- [ ] Crear la imagen Docker multistage basada en el binario release (para validación local).
+- [ ] **Railway no requiere un registro de contenedores externo**: el despliegue se realiza enviando el código fuente directamente a Railway, que ejecuta el build en su infraestructura. No generar pasos de `docker push` hacia DockerHub, GHCR u otros registros para el flujo de Railway.
 
 ### 5. Despliegue Automático
 - [ ] **Solo en merge a `main`**: Desplegar la nueva versión en Railway de forma automática.

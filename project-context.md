@@ -37,12 +37,14 @@
 ## MCPs activos en el proyecto
 - github-mcp
 - postgres-mcp
-- redis-mcp
 - stripe-mcp (fase 4)
 - cloudinary-mcp (fase 4)
 - meilisearch-mcp (fase 4)
-- figma-mcp (fase 6)
 - playwright-mcp (fase 5)
+
+## MCPs evaluados y descartados
+- **redis-mcp** — No disponible como servidor MCP. Redis como infraestructura es opcional (Should Have): el JWT stateless no lo requiere estrictamente y el chat usa WebSockets sin pub/sub externo en esta versión.
+- **figma-mcp** — No disponible como servidor MCP. El sistema de diseño es autocontenido en las skills `tailwind-patterns` y `askama-template`; no se requiere herramienta de prototipado externa.
 
 ## Scope resumido
 ### Must Have

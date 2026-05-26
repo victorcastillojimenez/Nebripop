@@ -5,7 +5,7 @@ description: Guía detallada y plantillas completas para empaquetar, conteneriza
 
 # Skill de Docker & Despliegue en Rust — Nebripop
 
-Esta skill proporciona las directrices, plantillas y configuraciones exactas que los agentes de desarrollo deben seguir para contenerizar y orquestar el ecosistema de Nebripop (API Axum, PostgreSQL, Redis, y MeiliSearch) en Docker.
+Esta skill proporciona las directrices, plantillas y configuraciones exactas que los agentes de desarrollo deben seguir para contenerizar y orquestar el ecosistema de Nebripop (API Axum, PostgreSQL y MeiliSearch) en Docker.
 
 ---
 
@@ -83,7 +83,9 @@ ENTRYPOINT ["/app/nebripop-api"]
 
 ## Orquestación Completa con Docker Compose (`docker-compose.yml`)
 
-El orquestador une el backend en Rust con PostgreSQL, Redis y MeiliSearch. Todos los servicios cuentan con healthchecks que garantizan que el backend (`app`) arranque únicamente cuando todas sus dependencias estén completamente listas para recibir tráfico.
+El orquestador une el backend en Rust con PostgreSQL y MeiliSearch. Todos los servicios cuentan con healthchecks que garantizan que el backend (`app`) arranque únicamente cuando todas sus dependencias estén completamente listas para recibir tráfico.
+
+> **Nota:** Redis fue evaluado y descartado (clasificado como "Should Have" en el PRD). El JWT es stateless y no requiere caché de sesiones; el chat en tiempo real se implementa con WebSockets sobre PostgreSQL sin pub/sub externo. No incluir Redis en producción reduce la superficie de ataque y el coste operativo.
 
 El archivo que el agente debe crear en la raíz del proyecto es el siguiente:
 
@@ -113,22 +115,6 @@ services:
       retries: 5
       start_period: 10s
 
-  # ----------------------------------------------------------------------------
-  # Servicio B: Caché de sesiones y WebSocket pub/sub (Redis)
-  # ----------------------------------------------------------------------------
-  redis:
-    image: redis:7-alpine
-    container_name: nebripop_redis
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
   # ----------------------------------------------------------------------------
   # Servicio C: Motor de búsqueda full-text (MeiliSearch)
@@ -152,7 +138,7 @@ services:
       retries: 5
 
   # ----------------------------------------------------------------------------
-  # Servicio D: Backend de Nebripop (Rust Axum + Askama/Leptos)
+  # Servicio B: Backend de Nebripop (Rust Axum + Askama SSR)
   # ----------------------------------------------------------------------------
   app:
     build:
@@ -166,7 +152,7 @@ services:
       PORT: ${PORT:-8080}
       RUST_LOG: ${RUST_LOG:-info}
       DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-nebripop}
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: # Redis descartado — JWT stateless, WebSockets sin pub/sub externo
       MEILI_URL: http://meilisearch:7700
       MEILI_KEY: ${MEILI_MASTER_KEY:-masterKeyNebripop2026}
       JWT_SECRET: ${JWT_SECRET:-supersecretsecretseednebripop2026}
@@ -174,8 +160,6 @@ services:
       CLOUDINARY_URL: ${CLOUDINARY_URL}
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       meilisearch:
         condition: service_healthy
@@ -192,7 +176,7 @@ services:
 volumes:
   postgres_data:
     driver: local
-  redis_data:
+  redis_data: # Descartado — ver nota sobre Redis arriba
     driver: local
   meili_data:
     driver: local

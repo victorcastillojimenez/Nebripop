@@ -403,6 +403,8 @@ UNIQUE constraint en (`user_id`, `listing_id`) — un favorito por usuario por a
 | **Cloudinary** | Alto (Must Have) | Almacenamiento y transformación de imágenes de anuncios | Almacenamiento local en `/static/uploads/` con servido estático |
 | **Redis** | Medio (Should Have) | Caché de sesiones JWT y pub/sub para WebSockets multi-instancia | Sin caché; JWT stateless no lo requiere estrictamente |
 
+> **Nota:** `redis-mcp` fue evaluado y descartado — no existe servidor MCP disponible para Redis. Redis como servicio de infraestructura permanece en la categoría "Should Have" con su fallback documentado.
+
 ### MCPs por fase de desarrollo
 
 | MCP | Sprint | Uso concreto |
@@ -413,6 +415,13 @@ UNIQUE constraint en (`user_id`, `listing_id`) — un favorito por usuario por a
 | `cloudinary-mcp` | Sprint 2 | Configuración de upload presets y transformaciones de imagen |
 | `stripe-mcp` | Sprint 3 | Configuración de productos, precios y endpoints de webhook |
 | `playwright-mcp` | Sprint 3 | Tests E2E automatizados de flujos críticos (registro → compra → valoración) |
+
+### MCPs evaluados y descartados
+
+| MCP | Motivo del descarte |
+|-----|--------------------|
+| `redis-mcp` | No existe servidor MCP disponible para Redis. La caché JWT es opcional (JWT stateless) y el chat no requiere pub/sub externo en esta versión. |
+| `figma-mcp` | No existe servidor MCP disponible para Figma. El sistema de diseño es autocontenido en las skills `tailwind-patterns` y `askama-template`; no se necesita herramienta de prototipado externa. |
 
 ---
 

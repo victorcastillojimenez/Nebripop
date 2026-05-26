@@ -348,7 +348,7 @@ pub async fn upload_listing_image(
 Nebripop requiere configurar middlewares transversales para garantizar seguridad, accesibilidad CORS y observabilidad de la API.
 
 ### 1. CORS Middleware (Cross-Origin Resource Sharing)
-Para permitir que la aplicación frontend en Leptos interactúe con el backend.
+Para permitir que el cliente (Askama SSR renderizado por el servidor + JavaScript vanilla) interactúe correctamente con el backend.
 ```rust
 use tower_http::cors::{CorsLayer, Any};
 use axum::http::Method;
@@ -690,7 +690,7 @@ Para garantizar el cumplimiento de los Requisitos No Funcionales (NFRs) de Nebri
 6. **Manejo Atomico con Transacciones**: Cualquier lógica que realice múltiples escrituras de base de datos en cadena debe ejecutarse en una transacción controlada (`db.begin().await?`) para evitar estados corruptos del sistema.
 7. **Límite Estricto en Subida de Archivos (Multipart)**: En la subida de imágenes para anuncios (Cloudinary), aplica siempre límites de tamaño en el handler y lee los chunks de bytes asíncronamente mediante buffers secuenciales para evitar fugas de memoria y ataques DoS.
 8. **Validación Rigurosa de Webhooks de Stripe**: El endpoint que recibe notificaciones de Stripe debe validar de manera estricta la firma `Stripe-Signature` utilizando la clave de webhook oficial (`STRIPE_WEBHOOK_SECRET`). Nunca proceses un pago basándote en un payload JSON no autenticado.
-9. **CORS Dinámico por Entorno**: En desarrollo local (`APP_ENV=development`), permite orígenes comodín (`*`) para agilizar pruebas. En producción (`APP_ENV=production`), restringe CORS exclusivamente al host del frontend de Leptos.
+9. **CORS Dinámico por Entorno**: En desarrollo local (`APP_ENV=development`), permite orígenes comodín (`*`) para agilizar pruebas. En producción (`APP_ENV=production`), restringe CORS exclusivamente al dominio de producción de Nebripop.
 10. **Aislamiento en Casos de Uso (Hexagonal)**: Los handlers deben actuar estrictamente como controladores de transporte de red HTTP. La lógica de negocio real debe residir dentro de `usecases` o `domain_services`, los cuales no deben importar tipos de `axum` ni de `tower-http`.
 11. **Errores Ocultos en el Servidor (Security)**: Los errores de base de datos (`sqlx::Error`) o de red deben escribirse en los logs del sistema (`tracing::error!`) para depuración interna, pero al cliente externo se le debe retornar un mensaje genérico unificado de tipo `INTERNAL_SERVER_ERROR`.
 12. **Inyección Limpia de Dependencias**: Pasa los componentes compartidos (PgPool, Clientes de APIs externas) a los casos de uso a través de referencias simples (`&state.db`, `&state.stripe_client`) extraídas en el handler. Evita inyectar el struct masivo `AppState` completo en capas profundas del dominio.

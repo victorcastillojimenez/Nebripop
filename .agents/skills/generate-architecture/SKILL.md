@@ -71,11 +71,11 @@ El documento debe incluir un registro de decisión por cada componente técnico 
 - **Estatus**: `Aceptado`
 - **Contexto**: Explicar la necesidad de negocio o técnica (ej: requerimiento de velocidad, entrega en 1 semana, etc.).
 - **Decisión**: Justificar la elección del componente y por qué es el óptimo.
-- **Consecuencias**: Beneficios y contras o trade-offs (ej: mayor tiempo de compilación en Rust, curva de aprendizaje en Leptos, etc.).
+- **Consecuencias**: Beneficios y contras o trade-offs (ej: mayor tiempo de compilación en Rust, curva de aprendizaje del sistema de tipos, etc.).
 
 Se deben documentar las **8 decisiones técnicas clave**:
 1. **Rust, Axum & Tokio**: Para el servidor backend altamente concurrente y rápido.
-2. **Leptos (WASM)**: Para un frontend moderno y reactivo con tipado fuerte integrado con Rust.
+2. **Askama + TailwindCSS CDN + JS Vanilla**: Para un frontend server-side rendered, rápido de compilar y sin complejidad WASM: templates HTML tipados compilados en tiempo de compilación por Askama, estilos con TailwindCSS via CDN y mínima interactividad con JavaScript vanilla.
 3. **PostgreSQL con SQLx**: Para persistencia robusta y validación de consultas SQL en tiempo de compilación.
 4. **JWT (jsonwebtoken) & Argon2**: Para sesiones sin estado y hashing de seguridad OWASP.
 5. **MeiliSearch**: Para búsquedas full-text ultrarrápidas con tolerancia a fallos ortográficos.
@@ -199,9 +199,9 @@ Mapear el desacoplamiento de búsqueda:
 
 Definir cómo se pondrá en producción la aplicación Nebripop de forma estable y aislada:
 
-- **Estrategia de Contenedores**: Uso de `Dockerfile` multi-stage para compilar el backend de Rust de manera óptima (generando un binario estático ligero en una imagen `alpine` o `distroless`) y servir los recursos de Leptos.
+- **Estrategia de Contenedores**: Uso de `Dockerfile` multi-stage para compilar el backend de Rust de manera óptima (generando un binario estático ligero en una imagen `alpine` o `distroless`) y servir los templates Askama compilados en el propio binario.
 - **Topología de Servicios**:
-  - Contenedor Backend Axum / Frontend Leptos.
+  - Contenedor Backend Axum con templates Askama (SSR) + TailwindCSS CDN + JS vanilla.
   - Base de datos gestionada PostgreSQL.
   - Instancia MeiliSearch dedicada con volumen persistente.
 - **Tabla de Variables de Entorno Obligatorias**:
