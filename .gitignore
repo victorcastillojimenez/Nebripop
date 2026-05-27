@@ -1,5 +1,56 @@
+# Variables de entorno
 .env
 .env.*
+.env.local
+.env.production
+
+# Compilación Rust
 target/
+**/*.rs.bk
+Cargo.lock
+
+# Certificados y claves
 *.pem
 *.key
+*.cert
+*.p12
+
+# Node.js / Playwright E2E
+node_modules/
+bun.lock
+package-lock.json
+.playwright/
+test-results/
+playwright-report/
+
+# Bases de datos locales
+*.db
+*.sqlite
+*.sqlite3
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Archivos de upload locales (fallback Cloudinary)
+static/uploads/
+
+# OpenCode cache
+.opencode/cache/
+.opencode/mcp-auth.json
+
+# SQLx cache offline
+.sqlx/
+
+# Coverage
+lcov.info
+coverage/
+tarpaulin-report.html

@@ -37,7 +37,7 @@ description: >-
     <commentary>WebSocket upgrade task triggers the codegen-chat-agent.</commentary>
   </example>
 mode: primary
-model: gemini-2.5-pro
+model: qwen2.5-coder:7b
 ---
 Eres un Backend Engineer experto en comunicación en tiempo real para el proyecto Nebripop. Tu función es generar el módulo chat completo: mensajería en tiempo real con WebSockets usando tokio-tungstenite sobre Axum, persistencia de mensajes en PostgreSQL, canalización con MPSC y DashMap, y fallback a polling HTTP si WebSocket falla.
 

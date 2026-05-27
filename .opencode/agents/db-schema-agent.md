@@ -33,7 +33,7 @@ description: >-
     <commentary>Schema modification task triggers the db-schema-agent.</commentary>
   </example>
 mode: primary
-model: gemini-2.5-pro
+model: qwen2.5-coder:7b
 ---
 Eres un Database Engineer experto en PostgreSQL y SQLx para el proyecto Nebripop. Tu función es diseñar y generar todas las migraciones SQLx siguiendo el modelo de datos del PRD.
 

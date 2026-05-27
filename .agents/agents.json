@@ -1,0 +1,256 @@
+{
+    "version": "2.0",
+    "project": "Nebripop",
+    "updated": "2026-05-27",
+    "agents": {
+        "antigravity": [
+            {
+                "name": "architect-agent",
+                "file": ".agents/architect-agent.md",
+                "model": "claude-opus-4-6-thinking",
+                "tool": "Antigravity",
+                "role": "primary",
+                "mcps": [
+                    "github-mcp"
+                ],
+                "skills": [
+                    "generate-architecture",
+                    "hexagonal-architecture-rust",
+                    "cargo-workspace",
+                    "solid-rust"
+                ],
+                "phase": "Fase 2 — Arquitectura"
+            },
+            {
+                "name": "reviewer-agent",
+                "file": ".agents/reviewer-agent.md",
+                "model": "claude-sonnet-4-6-thinking",
+                "tool": "Antigravity",
+                "role": "secondary",
+                "mcps": [
+                    "github-mcp"
+                ],
+                "skills": [
+                    "clean-code-rust",
+                    "solid-rust",
+                    "error-handling-rust",
+                    "hexagonal-architecture-rust",
+                    "rust-domain-modeling",
+                    "clean-code"
+                ],
+                "phase": "Todos los sprints — gate de calidad"
+            },
+            {
+                "name": "security-agent",
+                "file": ".agents/security-agent.md",
+                "model": "claude-sonnet-4-6-thinking",
+                "tool": "Antigravity",
+                "role": "secondary",
+                "mcps": [
+                    "github-mcp"
+                ],
+                "skills": [
+                    "security-audit-rust",
+                    "jwt-auth-rust",
+                    "error-handling-rust"
+                ],
+                "phase": "Todos los sprints — auditoría seguridad"
+            },
+            {
+                "name": "uiux-agent",
+                "file": ".agents/uiux-agent.md",
+                "model": "gemini-3.5-flash-high",
+                "tool": "Antigravity",
+                "role": "primary",
+                "mcps": [
+                    "github-mcp"
+                ],
+                "skills": [
+                    "askama-best-practices",
+                    "askama-template",
+                    "tailwind-patterns"
+                ],
+                "phase": "Fase 6 — UI/UX y frontend"
+            },
+            {
+                "name": "devops-agent",
+                "file": ".agents/devops-agent.md",
+                "model": "gemini-3.5-flash-medium",
+                "tool": "Antigravity",
+                "role": "primary",
+                "mcps": [
+                    "github-mcp",
+                    "railway-mcp"
+                ],
+                "skills": [
+                    "docker-rust",
+                    "github-actions-rust"
+                ],
+                "phase": "Fase 7 — Despliegue"
+            },
+            {
+                "name": "docs-agent",
+                "file": ".agents/docs-agent.md",
+                "model": "gemini-3.5-flash-medium",
+                "tool": "Antigravity",
+                "role": "secondary",
+                "mcps": [
+                    "github-mcp"
+                ],
+                "skills": [],
+                "phase": "Toda la duración del proyecto"
+            }
+        ],
+        "opencode": [
+            {
+                "name": "db-schema-agent",
+                "file": ".opencode/agents/db-schema-agent.md",
+                "model": "qwen2.5-coder:7b",
+                "tool": "OpenCode",
+                "role": "primary",
+                "mcps": [
+                    "postgres-mcp"
+                ],
+                "skills": [
+                    "sqlx-migration",
+                    "sqlx-best-practices",
+                    "rust-domain-modeling"
+                ],
+                "phase": "Sprint 0 — Base de datos"
+            },
+            {
+                "name": "auth-agent",
+                "file": ".opencode/agents/auth-agent.md",
+                "model": "qwen2.5-coder:7b",
+                "tool": "OpenCode",
+                "role": "primary",
+                "mcps": [
+                    "github-mcp",
+                    "postgres-mcp"
+                ],
+                "skills": [
+                    "jwt-auth-rust",
+                    "axum-best-practices",
+                    "error-handling-rust",
+                    "clean-code-rust",
+                    "solid-rust"
+                ],
+                "phase": "Sprint 1 — Autenticación"
+            },
+            {
+                "name": "codegen-listings-agent",
+                "file": ".opencode/agents/codegen-listings-agent.md",
+                "model": "qwen2.5-coder:7b",
+                "tool": "OpenCode",
+                "role": "primary",
+                "mcps": [
+                    "github-mcp",
+                    "postgres-mcp"
+                ],
+                "skills": [
+                    "rust-axum-handler",
+                    "sqlx-best-practices",
+                    "rust-domain-modeling",
+                    "cloudinary-integration",
+                    "clean-code-rust",
+                    "error-handling-rust"
+                ],
+                "phase": "Sprint 2 — Módulo listings"
+            },
+            {
+                "name": "codegen-search-agent",
+                "file": ".opencode/agents/codegen-search-agent.md",
+                "model": "qwen2.5-coder:7b",
+                "tool": "OpenCode",
+                "role": "primary",
+                "mcps": [
+                    "github-mcp",
+                    "postgres-mcp",
+                    "meilisearch-mcp"
+                ],
+                "skills": [
+                    "meilisearch-integration",
+                    "rust-axum-handler",
+                    "sqlx-best-practices",
+                    "error-handling-rust",
+                    "clean-code-rust"
+                ],
+                "phase": "Sprint 2 — Módulo search"
+            },
+            {
+                "name": "codegen-chat-agent",
+                "file": ".opencode/agents/codegen-chat-agent.md",
+                "model": "qwen2.5-coder:7b",
+                "tool": "OpenCode",
+                "role": "primary",
+                "mcps": [
+                    "github-mcp",
+                    "postgres-mcp"
+                ],
+                "skills": [
+                    "websocket-rust",
+                    "rust-axum-handler",
+                    "sqlx-best-practices",
+                    "error-handling-rust",
+                    "clean-code-rust"
+                ],
+                "phase": "Sprint 3 — Módulo chat"
+            },
+            {
+                "name": "codegen-payments-agent",
+                "file": ".opencode/agents/codegen-payments-agent.md",
+                "model": "qwen2.5-coder:7b",
+                "tool": "OpenCode",
+                "role": "primary",
+                "mcps": [
+                    "github-mcp",
+                    "postgres-mcp",
+                    "stripe-mcp"
+                ],
+                "skills": [
+                    "stripe-integration",
+                    "rust-axum-handler",
+                    "sqlx-best-practices",
+                    "error-handling-rust",
+                    "clean-code-rust",
+                    "security-audit-rust"
+                ],
+                "phase": "Sprint 3 — Módulo payments"
+            },
+            {
+                "name": "codegen-core-agent",
+                "file": ".opencode/agents/codegen-core-agent.md",
+                "model": "qwen2.5-coder:7b",
+                "tool": "OpenCode",
+                "role": "primary",
+                "mcps": [
+                    "github-mcp",
+                    "postgres-mcp"
+                ],
+                "skills": [
+                    "rust-axum-handler",
+                    "sqlx-best-practices",
+                    "rust-domain-modeling",
+                    "error-handling-rust",
+                    "clean-code-rust"
+                ],
+                "phase": "Sprint 2 — Módulos core"
+            },
+            {
+                "name": "qa-agent",
+                "file": ".opencode/agents/qa-agent.md",
+                "model": "qwen2.5-coder:7b",
+                "tool": "OpenCode",
+                "role": "agent",
+                "mcps": [
+                    "github-mcp"
+                ],
+                "skills": [
+                    "rust-integration-test",
+                    "error-handling-rust"
+                ],
+                "phase": "Sprint 4 — Testing y QA"
+            }
+        ]
+    }
+}
