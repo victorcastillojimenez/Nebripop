@@ -332,3 +332,18 @@ pub fn search_router() -> Router<AppState> {
 - Verifica que `GET /search` sin parámetros retorne los anuncios activos paginados (no error)
 - Verifica que `GET /search?q=algo` sin resultados retorne `items: [], total: 0` (no error)
 - Verifica que el fallback SQL funcione correctamente cuando MeiliSearch no está disponible
+
+## Flujo de entrega obligatorio
+
+Al terminar la implementación:
+
+1. Crear rama: `git checkout -b feature/[sprint]-[modulo]`
+2. Añadir archivos: `git add .`
+3. Commit con formato:
+   `git commit -m "[nombre-agente] feat([modulo]): descripción"`
+4. Push: `git push origin feature/[sprint]-[modulo]`
+5. Crear PR hacia develop via github-mcp con:
+   - Título: [agente] feat([modulo]): descripción
+   - Descripción: lista de archivos creados y
+     decisiones técnicas tomadas
+   - Assignee: el miembro del equipo responsable

@@ -133,3 +133,18 @@ crates/
 - La respuesta de error debe seguir el formato unificado JSON del PRD
 - Después de implementar, verifica que `cargo build` compile sin errores
 - Verifica que `sqlx migrate run` haya creado la tabla `users`
+
+## Flujo de entrega obligatorio
+
+Al terminar la implementación:
+
+1. Crear rama: `git checkout -b feature/[sprint]-[modulo]`
+2. Añadir archivos: `git add .`
+3. Commit con formato:
+   `git commit -m "[nombre-agente] feat([modulo]): descripción"`
+4. Push: `git push origin feature/[sprint]-[modulo]`
+5. Crear PR hacia develop via github-mcp con:
+   - Título: [agente] feat([modulo]): descripción
+   - Descripción: lista de archivos creados y
+     decisiones técnicas tomadas
+   - Assignee: el miembro del equipo responsable

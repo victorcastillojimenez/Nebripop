@@ -245,3 +245,18 @@ test('given_new_user_when_register_then_redirected_to_dashboard', async ({ page 
 - Verificar que no hay tests ignorados (`#[ignore]`) sin justificación documentada
 - Los tests de integración deben ser independientes entre sí: no depender del orden de ejecución
 - Reportar en el PR la cobertura final por módulo en forma de tabla Markdown
+
+## Flujo de entrega obligatorio
+
+Al terminar la implementación:
+
+1. Crear rama: `git checkout -b feature/[sprint]-[modulo]`
+2. Añadir archivos: `git add .`
+3. Commit con formato:
+   `git commit -m "[nombre-agente] feat([modulo]): descripción"`
+4. Push: `git push origin feature/[sprint]-[modulo]`
+5. Crear PR hacia develop via github-mcp con:
+   - Título: [agente] feat([modulo]): descripción
+   - Descripción: lista de archivos creados y
+     decisiones técnicas tomadas
+   - Assignee: el miembro del equipo responsable
