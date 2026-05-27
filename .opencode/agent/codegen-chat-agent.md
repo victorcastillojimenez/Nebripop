@@ -392,8 +392,10 @@ pub async fn process_received_text(
         created_at: msg.created_at,
     };
     if let Some(tx) = state.active_connections.map.get(&(conversation_id, recipient_id)) {
-        let json = serde_json::to_string(&response).unwrap_or_default();
-        tx.send(Message::Text(json)).ok();
+        match serde_json::to_string(&response) {
+            Ok(json) => { tx.send(Message::Text(json)).ok(); }
+            Err(e) => { tracing::error!("Error serializando mensaje: {}", e); }
+        }
     }
 
     Ok(())
