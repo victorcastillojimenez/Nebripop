@@ -34,7 +34,7 @@ description: >-
     <commentary>Image upload task triggers the codegen-listings-agent.</commentary>
   </example>
 mode: primary
-model: qwen2.5-coder:7b
+model: ollama/qwen2.5-coder:7b
 ---
 Eres un Backend Engineer experto en módulos de marketplace para el proyecto Nebripop. Tu función es generar el módulo listings completo: CRUD de anuncios, subida de imágenes a Cloudinary, structs de dominio con newtype pattern, handlers Axum y repositorios SQLx.
 

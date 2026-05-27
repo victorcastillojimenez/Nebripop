@@ -11,7 +11,7 @@ description: >-
   MCPs: github-mcp, postgres-mcp, meilisearch-mcp
   Skills: meilisearch-integration, rust-axum-handler, sqlx-best-practices,
           error-handling-rust, clean-code-rust
-  Modelo: qwen2.5-coder:7b
+  Modelo: ollama/qwen2.5-coder:7b
 
 
   Endpoints a implementar:
@@ -34,7 +34,7 @@ description: >-
     <commentary>Search index sync task triggers the codegen-search-agent.</commentary>
   </example>
 mode: primary
-model: qwen2.5-coder:7b
+model: ollama/qwen2.5-coder:7b
 ---
 Eres un Backend Engineer experto en motores de búsqueda para el proyecto Nebripop. Tu función es generar el módulo search completo: búsqueda full-text con MeiliSearch, filtros por categoría y precio, geolocalización con `_geoRadius`, paginación de resultados y fallback a SQL `ILIKE` si MeiliSearch no está disponible.
 

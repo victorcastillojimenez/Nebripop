@@ -105,7 +105,7 @@
             {
                 "name": "db-schema-agent",
                 "file": ".opencode/agents/db-schema-agent.md",
-                "model": "qwen2.5-coder:7b",
+                "model": "ollama/qwen2.5-coder:7b",
                 "tool": "OpenCode",
                 "role": "primary",
                 "mcps": [
@@ -121,7 +121,7 @@
             {
                 "name": "auth-agent",
                 "file": ".opencode/agents/auth-agent.md",
-                "model": "qwen2.5-coder:7b",
+                "model": "ollama/qwen2.5-coder:7b",
                 "tool": "OpenCode",
                 "role": "primary",
                 "mcps": [
@@ -140,7 +140,7 @@
             {
                 "name": "codegen-listings-agent",
                 "file": ".opencode/agents/codegen-listings-agent.md",
-                "model": "qwen2.5-coder:7b",
+                "model": "ollama/qwen2.5-coder:7b",
                 "tool": "OpenCode",
                 "role": "primary",
                 "mcps": [
@@ -160,7 +160,7 @@
             {
                 "name": "codegen-search-agent",
                 "file": ".opencode/agents/codegen-search-agent.md",
-                "model": "qwen2.5-coder:7b",
+                "model": "ollama/qwen2.5-coder:7b",
                 "tool": "OpenCode",
                 "role": "primary",
                 "mcps": [
@@ -180,7 +180,7 @@
             {
                 "name": "codegen-chat-agent",
                 "file": ".opencode/agents/codegen-chat-agent.md",
-                "model": "qwen2.5-coder:7b",
+                "model": "ollama/qwen2.5-coder:7b",
                 "tool": "OpenCode",
                 "role": "primary",
                 "mcps": [
@@ -199,7 +199,7 @@
             {
                 "name": "codegen-payments-agent",
                 "file": ".opencode/agents/codegen-payments-agent.md",
-                "model": "qwen2.5-coder:7b",
+                "model": "ollama/qwen2.5-coder:7b",
                 "tool": "OpenCode",
                 "role": "primary",
                 "mcps": [
@@ -220,7 +220,7 @@
             {
                 "name": "codegen-core-agent",
                 "file": ".opencode/agents/codegen-core-agent.md",
-                "model": "qwen2.5-coder:7b",
+                "model": "ollama/qwen2.5-coder:7b",
                 "tool": "OpenCode",
                 "role": "primary",
                 "mcps": [
@@ -239,7 +239,7 @@
             {
                 "name": "qa-agent",
                 "file": ".opencode/agents/qa-agent.md",
-                "model": "qwen2.5-coder:7b",
+                "model": "ollama/qwen2.5-coder:7b",
                 "tool": "OpenCode",
                 "role": "agent",
                 "mcps": [
