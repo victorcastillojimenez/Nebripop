@@ -1,0 +1,15 @@
+[package]
+name = "listings"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common = { path = "../common" }
+users = { path = "../users" }
+axum = { workspace = true }
+serde = { workspace = true }
+sqlx = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

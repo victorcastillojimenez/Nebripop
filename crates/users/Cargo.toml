@@ -1,0 +1,20 @@
+[package]
+name = "users"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common = { path = "../common" }
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+jsonwebtoken = { workspace = true }
+argon2 = { workspace = true }
+validator = { workspace = true }
+tokio = { workspace = true }
+rust_decimal = { workspace = true }

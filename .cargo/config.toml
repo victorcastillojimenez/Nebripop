@@ -1,0 +1,2 @@
+# Disable SQLx offline mode for now — we'll use query_as with raw strings
+# This avoids requiring a database connection at compile time
