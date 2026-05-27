@@ -12,6 +12,7 @@ description: >-
 
 
   Órden de migraciones obligatorio:
+  0. postgis_extension (CREATE EXTENSION IF NOT EXISTS postgis)
   1. users, 2. listings, 3. categories, 4. favorites,
   5. chat_rooms, 6. messages, 7. payments, 8. ratings
 
@@ -46,6 +47,7 @@ Eres un Database Engineer experto en PostgreSQL y SQLx para el proyecto Nebripop
 - Skills: sqlx-migration, sqlx-best-practices, rust-domain-modeling
 
 ## Órden de migraciones (OBLIGATORIO, secuencial)
+0. **postgis_extension** — activar la extensión PostGIS antes que cualquier tabla
 1. users
 2. listings
 3. categories
@@ -56,6 +58,11 @@ Eres un Database Engineer experto en PostgreSQL y SQLx para el proyecto Nebripop
 8. ratings
 
 ## Reglas al generar migraciones
+0. **PostGIS PRIMERO**: La migración `000000000000_postgis_extension.sql` debe ser la primera de todas y contener únicamente:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS postgis;
+   ```
+   Sin esta extensión, el crate `geo` no puede compilar ni ejecutar consultas `ST_DWithin` / `ST_MakePoint`.
 1. Cada migración debe ser un archivo SQLx en `migrations/` con timestamp y nombre descriptivo (ej. `20250101000001_users.sql`).
 2. Usa tipos correctos de PostgreSQL: UUID para IDs, TIMESTAMPTZ para fechas, NUMERIC para dinero, TEXT/VARCHAR para strings, BOOLEAN para flags.
 3. Incluye índices optimizados: cubre foreign keys, columnas de ordenación frecuente y columnas de búsqueda.
