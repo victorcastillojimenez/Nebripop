@@ -1,0 +1,50 @@
+services:
+  # ----------------------------------------------------------------------------
+  # Servicio: Base de datos relacional (PostgreSQL 15 + PostGIS 3.4)
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgis/postgis:15-3.4
+    container_name: nebripop_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: nebripop
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nebripop"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ----------------------------------------------------------------------------
+  # Servicio: Motor de búsqueda full-text (MeiliSearch 1.45.0)
+  # ----------------------------------------------------------------------------
+  meilisearch:
+    image: getmeili/meilisearch:v1.45.0
+    container_name: nebripop_meilisearch
+    restart: always
+    environment:
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY}
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  postgres_data:
+    driver: local
+  meilisearch_data:
+    driver: local
