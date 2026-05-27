@@ -1,0 +1,20 @@
+[package]
+name = "ratings"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum.workspace = true
+tokio.workspace = true
+sqlx.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+validator.workspace = true
+
+common = { path = "../common" }
+users = { path = "../users" }
+listings = { path = "../listings" }
