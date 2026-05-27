@@ -268,3 +268,1123 @@ Implementar chat en tiempo real usando `axum::extract::ws` que proporciona WebSo
 - ✅ Fallback HTTP polling garantiza funcionalidad si WebSocket no está disponible
 - ✅ DashMap ofrece acceso concurrente sin locks globales y sin riesgo de deadlocks
 - ⚠️ Sin pub/sub externo (Redis): limitado a una única instancia del servidor en esta versión
+
+## 3. Estructura de Crates del Workspace Cargo
+
+### 3.1 Workspace raíz — Cargo.toml
+
+```toml
+[workspace]
+members = [
+    "crates/api",
+    "crates/common",
+    "crates/users",
+    "crates/listings",
+    "crates/search",
+    "crates/chat",
+    "crates/payments",
+    "crates/ratings",
+    "crates/favorites",
+    "crates/geo",
+]
+resolver = "2"
+
+[workspace.dependencies]
+axum = { version = "0.7", features = ["ws", "multipart"] }
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.7", features = ["postgres", "uuid", "chrono", "runtime-tokio-native-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1"
+tracing = "0.1"
+tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip"] }
+jsonwebtoken = "9"
+argon2 = "0.5"
+validator = { version = "0.18", features = ["derive"] }
+rust_decimal = { version = "1", features = ["serde-float"] }
+dashmap = "6"
+futures-util = "0.3"
+askama = { version = "0.12", features = ["with-axum"] }
+meilisearch-sdk = "0.27"
+```
+
+### 3.2 crate: common
+
+**Responsabilidad**: Tipos compartidos, errores base y utilidades reutilizables por todos los crates.
+
+```
+crates/common/src/
+├── lib.rs
+├── errors.rs        # AppError global con IntoResponse para Axum
+├── pagination.rs    # PageRequest { page, per_page }, PageResult<T>
+├── ids.rs           # Newtypes: UserId(Uuid), ListingId(Uuid), ChatId(Uuid), PaymentId(Uuid)
+└── response.rs      # Formato unificado de respuesta JSON { success, data, error }
+```
+
+**Traits expuestos**: Ninguno (solo tipos y utilidades).
+**Dependencias**: Ninguna de otros crates del workspace.
+
+---
+
+### 3.3 crate: users
+
+**Responsabilidad**: Autenticación JWT, registro, login, perfiles públicos y extractor AuthUser reutilizable por todos los módulos protegidos.
+
+```
+crates/users/src/
+├── lib.rs
+├── router.rs
+├── errors.rs
+├── models.rs              # User, UserRole(User/Admin), PublicProfile
+├── dtos.rs                # RegisterDto, LoginDto, AuthResponse, PublicProfileDto
+├── handlers/
+│   ├── mod.rs
+│   ├── register.rs        # POST /auth/register
+│   ├── login.rs           # POST /auth/login
+│   ├── refresh.rs         # POST /auth/refresh
+│   ├── logout.rs          # POST /auth/logout
+│   └── get_profile.rs     # GET /users/:id
+├── usecases/
+│   ├── mod.rs
+│   ├── register_usecase.rs
+│   ├── login_usecase.rs
+│   └── refresh_usecase.rs
+└── adapters/
+    ├── mod.rs
+    ├── user_repository.rs
+    ├── jwt.rs              # generate_jwt(), verify_jwt(), Claims
+    └── password.rs         # hash_password(), verify_password() Argon2id OWASP
+```
+
+**Traits expuestos**:
+- `UserRepository`: find_by_id, find_by_email, insert, update_last_login
+- `AuthService`: generate_token, verify_token
+
+**Dependencias**: common
+
+---
+
+### 3.4 crate: listings
+
+**Responsabilidad**: CRUD completo de anuncios, subida de imágenes a Cloudinary, soft delete y gestión del ciclo de vida.
+
+```
+crates/listings/src/
+├── lib.rs
+├── router.rs
+├── errors.rs              # ListingError: NotFound, NotOwner, TooManyImages, InvalidInput
+├── models.rs              # Listing, ListingImage, ListingStatus(Active/Sold/Deleted), PhysicalCondition
+├── dtos.rs                # CreateListingDto, UpdateListingDto, ListingResponseDto, PaginatedListingsDto
+├── handlers/
+│   ├── mod.rs
+│   ├── list.rs            # GET /listings
+│   ├── create.rs          # POST /listings
+│   ├── get_by_id.rs       # GET /listings/:id
+│   ├── update.rs          # PUT /listings/:id
+│   ├── delete.rs          # DELETE /listings/:id
+│   └── upload_image.rs    # POST /listings/:id/images
+├── usecases/
+│   ├── mod.rs
+│   ├── create_listing_usecase.rs
+│   ├── get_listing_usecase.rs
+│   ├── update_listing_usecase.rs
+│   ├── delete_listing_usecase.rs
+│   └── upload_image_usecase.rs
+└── adapters/
+    ├── mod.rs
+    ├── listing_repository.rs
+    └── cloudinary.rs       # upload_image(), delete_image(), fallback /static/uploads/
+```
+
+**Traits expuestos**:
+- `ListingRepository`: find_by_id, find_all_paginated, find_by_seller, insert, update, soft_delete
+- `ImageStorage`: upload, delete, get_optimized_url
+
+**Dependencias**: common, users
+
+---
+
+### 3.5 crate: search
+
+**Responsabilidad**: Búsqueda full-text con MeiliSearch, indexación de anuncios y fallback SQL ILIKE.
+
+```
+crates/search/src/
+├── lib.rs
+├── router.rs
+├── errors.rs
+├── models.rs              # SearchResult, SearchFilters
+├── dtos.rs                # SearchQueryDto { q, category, min_price, max_price, lat, lng, page }, SearchResponseDto
+├── handlers/
+│   ├── mod.rs
+│   └── search.rs          # GET /search
+├── usecases/
+│   ├── mod.rs
+│   ├── search_usecase.rs
+│   └── index_listing_usecase.rs
+└── adapters/
+    ├── mod.rs
+    ├── meilisearch_adapter.rs   # index_listing(), remove_listing(), search()
+    └── sql_fallback.rs          # ILIKE fallback cuando MeiliSearch no disponible
+```
+
+**Traits expuestos**:
+- `SearchEngine`: search, index_listing, remove_listing
+
+**Dependencias**: common, listings
+
+---
+
+### 3.6 crate: chat
+
+**Responsabilidad**: Mensajería en tiempo real WebSocket, gestión de conversaciones, persistencia de mensajes y fallback HTTP polling.
+
+```
+crates/chat/src/
+├── lib.rs
+├── router.rs
+├── errors.rs              # ChatError: ConversationNotFound, NotMember, InvalidMessage
+├── models.rs              # Conversation, Message
+├── dtos.rs                # CreateConversationDto, SendMessageDto, MessageResponseDto, ConversationResponseDto
+├── connections.rs         # ActiveConnections: DashMap<(Uuid,Uuid), UnboundedSender<WsMessage>>
+├── handlers/
+│   ├── mod.rs
+│   ├── list_conversations.rs   # GET /chat
+│   ├── create_conversation.rs  # POST /chat
+│   ├── get_messages.rs         # GET /chat/:id/messages
+│   ├── send_message.rs         # POST /chat/:id/messages
+│   └── ws_handler.rs           # WS /chat/:id/ws
+├── usecases/
+│   ├── mod.rs
+│   ├── list_conversations_usecase.rs
+│   ├── create_conversation_usecase.rs
+│   ├── get_messages_usecase.rs
+│   ├── send_message_usecase.rs
+│   ├── ws_lifecycle_usecase.rs      # handle_socket() con tokio::select!
+│   └── process_message_usecase.rs   # Persistir + broadcast
+└── adapters/
+    ├── mod.rs
+    ├── conversation_repository.rs
+    └── message_repository.rs
+```
+
+**Traits expuestos**:
+- `ConversationRepository`: find_by_id, find_by_user, create, update_last_message, is_member
+- `MessageRepository`: create, find_by_conversation, count_unread
+
+**Dependencias**: common, users, listings
+
+---
+
+### 3.7 crate: payments
+
+**Responsabilidad**: Integración Stripe, creación de PaymentIntents, verificación de webhooks HMAC y gestión del estado de transacciones.
+
+```
+crates/payments/src/
+├── lib.rs
+├── router.rs
+├── errors.rs              # PaymentError: StripeError, InvalidSignature, NotFound, Forbidden
+├── models.rs              # Payment, PaymentStatus(Pending/Succeeded/Failed/Refunded)
+├── dtos.rs                # CreateIntentDto, CreateIntentResponse, PaymentStatusDto
+├── handlers/
+│   ├── mod.rs
+│   ├── create_intent.rs   # POST /payments/intent
+│   ├── webhook.rs         # POST /payments/webhook (sin JWT, con firma Stripe)
+│   └── get_status.rs      # GET /payments/:id/status
+├── usecases/
+│   ├── mod.rs
+│   ├── create_intent_usecase.rs
+│   ├── handle_webhook_usecase.rs
+│   └── get_payment_status_usecase.rs
+└── adapters/
+    ├── mod.rs
+    ├── stripe_adapter.rs       # create_payment_intent() con async-stripe
+    └── payment_repository.rs   # insert, update_status, find_by_id
+```
+
+**Traits expuestos**:
+- `PaymentRepository`: insert, update_status, find_by_id
+- `StripePort`: create_payment_intent, verify_webhook_signature
+
+**Dependencias**: common, users, listings
+
+---
+
+### 3.8 crate: ratings
+
+**Responsabilidad**: Valoraciones post-transacción con validación de unicidad y Value Object RatingScore(1-5).
+
+```
+crates/ratings/src/
+├── lib.rs
+├── router.rs
+├── errors.rs              # RatingError: AlreadyRated, InvalidScore, TransactionNotCompleted
+├── models.rs              # Rating, RatingScore(Value Object 1-5)
+├── dtos.rs                # CreateRatingDto, RatingDto, RatingsListDto
+├── handlers/
+│   ├── mod.rs
+│   ├── create_rating.rs   # POST /listings/:id/ratings
+│   └── list_ratings.rs    # GET /users/:id/ratings
+├── usecases/
+│   ├── mod.rs
+│   ├── create_rating_usecase.rs
+│   └── list_ratings_usecase.rs
+└── adapters/
+    ├── mod.rs
+    └── rating_repository.rs   # insert (con check unicidad), find_by_listing, find_by_user
+```
+
+**Traits expuestos**:
+- `RatingRepository`: insert, find_by_listing_id, find_by_user_id, calculate_average
+
+**Dependencias**: common, users, listings
+
+---
+
+### 3.9 crate: favorites
+
+**Responsabilidad**: Gestión de anuncios guardados con operaciones idempotentes.
+
+```
+crates/favorites/src/
+├── lib.rs
+├── router.rs
+├── errors.rs              # FavoriteError: NotFound, AlreadyExists
+├── models.rs              # Favorite
+├── dtos.rs                # FavoriteDto, FavoritesListDto
+├── handlers/
+│   ├── mod.rs
+│   ├── add_favorite.rs    # POST /listings/:id/favorites
+│   ├── remove_favorite.rs # DELETE /listings/:id/favorites
+│   └── list_favorites.rs  # GET /users/me/favorites
+├── usecases/
+│   ├── mod.rs
+│   ├── add_favorite_usecase.rs
+│   ├── remove_favorite_usecase.rs
+│   └── list_favorites_usecase.rs
+└── adapters/
+    ├── mod.rs
+    └── favorite_repository.rs  # insert (idempotente), delete, find_by_user
+```
+
+**Traits expuestos**:
+- `FavoriteRepository`: insert, delete, find_by_user_id, exists
+
+**Dependencias**: common, users, listings
+
+---
+
+### 3.10 crate: geo
+
+**Responsabilidad**: Búsqueda de anuncios por proximidad geográfica usando PostGIS ST_DWithin.
+
+```
+crates/geo/src/
+├── lib.rs
+├── router.rs
+├── errors.rs              # GeoError: InvalidCoordinates, RadiusExceeded
+├── models.rs              # GeoPoint { lat: f64, lng: f64 }, GeoListing
+├── dtos.rs                # GeoSearchQuery { lat, lng, radius_m, limit }, GeoListingDto { ...listing, distance_m }
+├── handlers/
+│   ├── mod.rs
+│   └── search_by_geo.rs   # GET /listings/nearby
+├── usecases/
+│   ├── mod.rs
+│   └── geo_search_usecase.rs
+└── adapters/
+    ├── mod.rs
+    └── geo_repository.rs   # ST_DWithin(location, ST_MakePoint($lng,$lat)::geography, $radius)
+```
+
+**Traits expuestos**:
+- `GeoRepository`: search_nearby(lat, lng, radius_m, limit)
+
+**Dependencias**: common, listings
+
+---
+
+### 3.11 crate: api
+
+**Responsabilidad**: Orquestador principal. Inicializa AppState, monta todos los routers, configura middleware y arranca el servidor Axum.
+
+```
+crates/api/src/
+├── main.rs                # Punto de entrada: carga .env, init AppState, arranca servidor
+├── app_state.rs           # AppState { pool, jwt_secret, active_connections, stripe_client, ... }
+├── router.rs              # Monta todos los sub-routers bajo sus prefijos
+├── errors.rs              # AppError global con IntoResponse
+├── auth_extractor.rs      # AuthUser extractor (FromRequestParts) reutilizado por todos los crates
+└── middleware/
+    ├── mod.rs
+    ├── cors.rs            # tower-http CorsLayer
+    ├── tracing.rs         # tower-http TraceLayer
+    └── rate_limit.rs      # Rate limiting en /auth/login y /auth/register
+```
+
+**AppState completo**:
+```rust
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: PgPool,
+    pub jwt_secret: String,
+    pub active_connections: Arc<DashMap<(Uuid, Uuid), UnboundedSender<Message>>>,
+    pub stripe_secret_key: String,
+    pub stripe_webhook_secret: String,
+    pub cloudinary_url: String,
+    pub meili_client: Client,
+}
+```
+
+**Dependencias**: todos los crates del workspace
+
+---
+
+## 4. Contratos de API (OpenAPI simplificado)
+
+### 4.1 Módulo: auth
+
+#### POST /auth/register
+- **Auth**: Público
+- **Request body**:
+```json
+{
+  "email": "string (email válido)",
+  "password": "string (mín 8 chars)",
+  "displayName": "string (mín 2 chars)",
+  "phone": "string (opcional)"
+}
+```
+- **Response 201**:
+```json
+{
+  "accessToken": "string (JWT)",
+  "expiresIn": 86400,
+  "user": { "id": "uuid", "email": "string", "displayName": "string" }
+}
+```
+- **Errores**: 400 (validación), 409 (email ya existe), 500
+
+#### POST /auth/login
+- **Auth**: Público
+- **Request body**:
+```json
+{ "email": "string", "password": "string" }
+```
+- **Response 200**:
+```json
+{ "accessToken": "string (JWT)", "expiresIn": 86400 }
+```
+- **Errores**: 400, 401 (credenciales incorrectas — mensaje genérico), 429 (rate limit)
+
+#### POST /auth/refresh
+- **Auth**: Bearer JWT (puede estar próximo a expirar)
+- **Request body**: `{}`
+- **Response 200**: `{ "accessToken": "string", "expiresIn": 86400 }`
+- **Errores**: 401 (token inválido o expirado)
+
+#### POST /auth/logout
+- **Auth**: Bearer JWT
+- **Response 200**: `{ "message": "Sesión cerrada" }`
+- **Nota**: Stateless — el cliente descarta el token
+
+---
+
+### 4.2 Módulo: users
+
+#### GET /users/:id
+- **Auth**: Público
+- **Path params**: `id: uuid`
+- **Response 200**:
+```json
+{
+  "id": "uuid",
+  "displayName": "string",
+  "avatarUrl": "string | null",
+  "ratingAvg": "number",
+  "totalRatings": "integer",
+  "createdAt": "datetime"
+}
+```
+- **Errores**: 404 (usuario no encontrado)
+- **Nota**: NUNCA incluye email, passwordHash ni tokens
+
+---
+
+### 4.3 Módulo: listings
+
+#### GET /listings
+- **Auth**: Público
+- **Query params**: `page=0`, `per_page=20`, `category=string`, `status=active`
+- **Response 200**:
+```json
+{
+  "data": [{ "id": "uuid", "title": "string", "price": "number", "currency": "eur", "imageUrl": "string|null", "city": "string", "condition": "new|like_new|used", "createdAt": "datetime" }],
+  "page": 0, "perPage": 20, "total": 150
+}
+```
+- **Errores**: 400 (params inválidos)
+
+#### POST /listings
+- **Auth**: Bearer JWT
+- **Request body**:
+```json
+{
+  "title": "string (mín 3, máx 100)",
+  "description": "string (máx 2000)",
+  "price": "number (> 0, máx 999999.99)",
+  "category": "string",
+  "condition": "new|like_new|used",
+  "locationLat": "number",
+  "locationLon": "number",
+  "city": "string"
+}
+```
+- **Response 201**: ListingResponseDto completo
+- **Errores**: 400 (validación), 401
+
+#### GET /listings/:id
+- **Auth**: Público
+- **Response 200**: ListingResponseDto con imágenes y datos del vendedor
+- **Errores**: 404
+
+#### PUT /listings/:id
+- **Auth**: Bearer JWT (debe ser el vendedor)
+- **Request body**: Mismos campos de POST pero todos opcionales (PATCH semantics)
+- **Response 200**: ListingResponseDto actualizado
+- **Errores**: 400, 401, 403 (no es el propietario), 404
+
+#### DELETE /listings/:id
+- **Auth**: Bearer JWT (debe ser el vendedor o admin)
+- **Response 204**: Sin body
+- **Nota**: Soft delete — status cambia a 'deleted'
+- **Errores**: 401, 403, 404
+
+#### POST /listings/:id/images
+- **Auth**: Bearer JWT (debe ser el vendedor)
+- **Request body**: multipart/form-data con campo `image` (JPEG/PNG/WebP, máx 5MB)
+- **Response 201**: `{ "id": "uuid", "imageUrl": "string", "position": 0 }`
+- **Errores**: 400 (tipo/tamaño inválido), 401, 403, 404, 422 (ya tiene 10 imágenes)
+
+---
+
+### 4.4 Módulo: search
+
+#### GET /search
+- **Auth**: Público
+- **Query params**: `q=string`, `category=string`, `minPrice=number`, `maxPrice=number`, `lat=number`, `lng=number`, `page=0`, `perPage=20`
+- **Response 200**:
+```json
+{
+  "data": [ListingSummaryDto],
+  "total": 42,
+  "page": 0,
+  "perPage": 20,
+  "engine": "meilisearch|sql_fallback"
+}
+```
+- **Errores**: 400 (params inválidos)
+
+---
+
+### 4.5 Módulo: chat
+
+#### GET /chat
+- **Auth**: Bearer JWT
+- **Query params**: `page=0`, `perPage=20`
+- **Response 200**:
+```json
+{
+  "conversations": [{ "id": "uuid", "listingId": "uuid", "listingTitle": "string", "otherUserId": "uuid", "otherUserName": "string", "lastMessage": "string|null", "unreadCount": 0, "updatedAt": "datetime" }],
+  "total": 5
+}
+```
+
+#### POST /chat
+- **Auth**: Bearer JWT
+- **Request body**: `{ "listingId": "uuid", "initialMessage": "string (mín 1, máx 5000)" }`
+- **Response 201**: ConversationResponseDto
+- **Errores**: 400 (mensaje vacío), 404 (listing no encontrado), 409 (conversación ya existe), 422 (intentar chatear consigo mismo)
+
+#### GET /chat/:id/messages
+- **Auth**: Bearer JWT (debe ser miembro)
+- **Query params**: `since=datetime (opcional)`, `limit=50`
+- **Response 200**: `[MessageResponseDto]`
+- **Nota**: Marca automáticamente mensajes del otro usuario como leídos
+- **Errores**: 401, 403, 404
+
+#### POST /chat/:id/messages
+- **Auth**: Bearer JWT (debe ser miembro)
+- **Request body**: `{ "content": "string (mín 1, máx 5000)" }`
+- **Response 201**: MessageResponseDto
+- **Errores**: 400, 401, 403, 404
+
+#### WS /chat/:id/ws
+- **Auth**: Query param `?token=<jwt>` (validado antes del upgrade)
+- **Upgrade**: WebSocket
+- **Mensajes entrantes**: `{ "content": "string" }`
+- **Mensajes salientes**: MessageResponseDto serializado
+- **Errores pre-upgrade**: 401 (token inválido), 403 (no es miembro)
+
+---
+
+### 4.6 Módulo: payments
+
+#### POST /payments/intent
+- **Auth**: Bearer JWT (comprador)
+- **Request body**: `{ "listingId": "uuid", "currency": "eur" }`
+- **Response 201**: `{ "paymentId": "uuid", "clientSecret": "string (Stripe)" }`
+- **Errores**: 400, 401, 404 (listing no encontrado), 422 (intentar comprar propio anuncio)
+
+#### POST /payments/webhook
+- **Auth**: Firma Stripe-Signature (HMAC-SHA256) — SIN JWT
+- **Request body**: Raw bytes (no parsear antes de verificar firma)
+- **Response 200**: `{ "received": true }`
+- **Errores**: 400 (firma inválida)
+
+#### GET /payments/:id/status
+- **Auth**: Bearer JWT (buyer o seller del pago)
+- **Response 200**: `{ "id": "uuid", "status": "pending|succeeded|failed|refunded", "amountCents": 1500, "currency": "eur", "createdAt": "datetime" }`
+- **Errores**: 401, 403, 404
+
+---
+
+### 4.7 Módulo: ratings
+
+#### POST /listings/:id/ratings
+- **Auth**: Bearer JWT
+- **Request body**: `{ "score": 1-5, "comment": "string (opcional, máx 500)" }`
+- **Response 201**: RatingDto
+- **Errores**: 400, 401, 409 (ya valoró), 422 (score fuera de rango)
+
+#### GET /users/:id/ratings
+- **Auth**: Público
+- **Query params**: `page=0`, `perPage=20`
+- **Response 200**: `{ "data": [RatingDto], "total": 10, "averageScore": 4.5 }`
+- **Errores**: 404
+
+---
+
+### 4.8 Módulo: favorites
+
+#### POST /listings/:id/favorites
+- **Auth**: Bearer JWT
+- **Response 200**: `{ "added": true }` (idempotente — 200 aunque ya existía)
+- **Errores**: 401, 404
+
+#### DELETE /listings/:id/favorites
+- **Auth**: Bearer JWT
+- **Response 204**: Sin body
+- **Errores**: 401, 404
+
+#### GET /users/me/favorites
+- **Auth**: Bearer JWT
+- **Query params**: `page=0`, `perPage=20`
+- **Response 200**: `{ "data": [ListingSummaryDto], "total": 8 }`
+- **Errores**: 401
+
+---
+
+### 4.9 Módulo: geo
+
+#### GET /listings/nearby
+- **Auth**: Público
+- **Query params**: `lat=number`, `lng=number`, `radius=number (metros, máx 50000)`, `limit=20 (máx 100)`
+- **Response 200**: `{ "data": [{ ...ListingSummaryDto, "distanceM": 350.5 }], "total": 12 }`
+- **Errores**: 400 (coords inválidas o radio > 50km)
+
+---
+
+## 5. Esquema de Base de Datos
+
+### 5.1 Extensiones requeridas
+
+```sql
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS postgis;
+```
+
+### 5.2 Tablas
+
+#### users
+```sql
+CREATE TABLE users (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email           TEXT NOT NULL UNIQUE,
+    password_hash   TEXT NOT NULL,
+    display_name    TEXT NOT NULL CHECK (length(display_name) >= 2),
+    avatar_url      TEXT,
+    phone           TEXT,
+    role            TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+    rating_avg      NUMERIC(3,2) DEFAULT 0.00 CHECK (rating_avg >= 0 AND rating_avg <= 5),
+    total_ratings   INTEGER NOT NULL DEFAULT 0,
+    last_login_at   TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_users_email ON users(email);
+```
+
+#### listings
+```sql
+CREATE TABLE listings (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    seller_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title           TEXT NOT NULL CHECK (length(title) >= 3 AND length(title) <= 100),
+    description     TEXT CHECK (length(description) <= 2000),
+    price           NUMERIC(10,2) NOT NULL CHECK (price > 0 AND price <= 999999.99),
+    currency        TEXT NOT NULL DEFAULT 'eur',
+    category        TEXT NOT NULL,
+    condition       TEXT NOT NULL CHECK (condition IN ('new', 'like_new', 'used')),
+    status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'sold', 'deleted')),
+    location_lat    FLOAT8,
+    location_lon    FLOAT8,
+    location        GEOGRAPHY(POINT, 4326),
+    city            TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_listings_seller ON listings(seller_id);
+CREATE INDEX idx_listings_status ON listings(status);
+CREATE INDEX idx_listings_category ON listings(category);
+CREATE INDEX idx_listings_price ON listings(price);
+CREATE INDEX idx_listings_created ON listings(created_at DESC);
+CREATE INDEX idx_listings_location ON listings USING GIST(location);
+```
+
+#### listing_images
+```sql
+CREATE TABLE listing_images (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    listing_id  UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    image_url   TEXT NOT NULL,
+    position    INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_listing_images_listing ON listing_images(listing_id);
+```
+
+#### conversations
+```sql
+CREATE TABLE conversations (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    listing_id          UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    buyer_id            UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    seller_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    last_message        TEXT,
+    last_message_at     TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(listing_id, buyer_id)
+);
+
+CREATE INDEX idx_conversations_buyer ON conversations(buyer_id);
+CREATE INDEX idx_conversations_seller ON conversations(seller_id);
+CREATE INDEX idx_conversations_updated ON conversations(updated_at DESC);
+```
+
+#### messages
+```sql
+CREATE TABLE messages (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    sender_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content         TEXT NOT NULL CHECK (length(content) >= 1 AND length(content) <= 5000),
+    is_read         BOOLEAN NOT NULL DEFAULT false,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_messages_conversation ON messages(conversation_id);
+CREATE INDEX idx_messages_created ON messages(created_at ASC);
+CREATE INDEX idx_messages_unread ON messages(conversation_id, is_read) WHERE is_read = false;
+```
+
+#### payments
+```sql
+CREATE TABLE payments (
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    listing_id                  UUID NOT NULL REFERENCES listings(id),
+    buyer_id                    UUID NOT NULL REFERENCES users(id),
+    seller_id                   UUID NOT NULL REFERENCES users(id),
+    stripe_payment_intent_id    TEXT NOT NULL UNIQUE,
+    amount_cents                BIGINT NOT NULL CHECK (amount_cents > 0),
+    currency                    TEXT NOT NULL DEFAULT 'eur',
+    status                      TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'succeeded', 'failed', 'refunded')),
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_payments_buyer ON payments(buyer_id);
+CREATE INDEX idx_payments_seller ON payments(seller_id);
+CREATE INDEX idx_payments_listing ON payments(listing_id);
+CREATE INDEX idx_payments_stripe ON payments(stripe_payment_intent_id);
+```
+
+#### ratings
+```sql
+CREATE TABLE ratings (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    listing_id      UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    rater_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rated_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    score           SMALLINT NOT NULL CHECK (score >= 1 AND score <= 5),
+    comment         TEXT CHECK (length(comment) <= 500),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(listing_id, rater_id)
+);
+
+CREATE INDEX idx_ratings_rated ON ratings(rated_id);
+CREATE INDEX idx_ratings_listing ON ratings(listing_id);
+```
+
+#### favorites
+```sql
+CREATE TABLE favorites (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    listing_id  UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(user_id, listing_id)
+);
+
+CREATE INDEX idx_favorites_user ON favorites(user_id);
+```
+
+### 5.3 Diagrama relacional
+
+```
+users
+  ├── listings (seller_id)
+  │     └── listing_images (listing_id)
+  ├── conversations (buyer_id, seller_id)
+  │     └── messages (conversation_id, sender_id)
+  ├── payments (buyer_id, seller_id)
+  ├── ratings (rater_id, rated_id)
+  └── favorites (user_id)
+              └── listings (listing_id)
+```
+
+---
+
+## 6. Flujos de Procesos Complejos
+
+### 6.1 Flujo de autenticación JWT
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente (Browser)
+    participant A as Axum API
+    participant DB as PostgreSQL
+    participant J as JWT Module
+
+    Note over C,J: Registro
+    C->>A: POST /auth/register { email, password, displayName }
+    A->>A: Validar DTO (email formato, password >= 8 chars)
+    A->>DB: SELECT * FROM users WHERE email = $1
+    DB-->>A: null (email libre)
+    A->>J: hash_password(password) con Argon2id OWASP
+    J-->>A: password_hash
+    A->>DB: INSERT INTO users (email, password_hash, display_name)
+    DB-->>A: User { id, email, ... }
+    A->>J: generate_jwt(user_id, role, exp=now+24h)
+    J-->>A: access_token (JWT HS256)
+    A-->>C: 201 { accessToken, expiresIn: 86400, user }
+
+    Note over C,J: Login
+    C->>A: POST /auth/login { email, password }
+    A->>DB: SELECT * FROM users WHERE email = $1
+    DB-->>A: User | null
+    A->>J: verify_password(password, user.password_hash)
+    J-->>A: true | false
+    alt Credenciales correctas
+        A->>J: generate_jwt(user_id, role, exp)
+        J-->>A: access_token
+        A->>DB: UPDATE users SET last_login_at = now()
+        A-->>C: 200 { accessToken, expiresIn }
+    else Credenciales incorrectas
+        A-->>C: 401 { error: "Credenciales incorrectas" }
+    end
+
+    Note over C,J: Request autenticado
+    C->>A: GET /listings (Bearer: access_token)
+    A->>J: verify_jwt(token, jwt_secret)
+    J-->>A: Claims { sub, role, exp } | Error
+    alt Token válido
+        A->>DB: SELECT * FROM listings WHERE status = 'active'
+        DB-->>A: listings[]
+        A-->>C: 200 { data, total, page }
+    else Token expirado
+        A-->>C: 401 { error: "El token de sesión ha expirado" }
+    end
+```
+
+### 6.2 Flujo de pago con Stripe
+
+```mermaid
+sequenceDiagram
+    participant B as Comprador (Browser)
+    participant A as Axum API
+    participant DB as PostgreSQL
+    participant S as Stripe API
+
+    B->>A: POST /payments/intent { listingId, currency: "eur" }
+    A->>A: Verificar AuthUser (JWT válido)
+    A->>DB: SELECT * FROM listings WHERE id = $1 AND status = 'active'
+    DB-->>A: Listing { price, seller_id }
+    A->>A: Verificar buyer_id != seller_id
+    A->>S: CreatePaymentIntent { amount_cents, currency, metadata: { listing_id, buyer_id } }
+    S-->>A: PaymentIntent { id, client_secret, status: "requires_payment_method" }
+    A->>DB: INSERT INTO payments (listing_id, buyer_id, seller_id, stripe_payment_intent_id, amount_cents, status: "pending")
+    DB-->>A: Payment { id }
+    A-->>B: 201 { paymentId, clientSecret }
+
+    Note over B,S: El comprador introduce datos de tarjeta en Stripe Checkout
+    B->>S: Confirmar pago (Stripe.js con clientSecret)
+    S-->>B: Redirige a success_url o cancel_url
+
+    Note over S,DB: Stripe notifica resultado via webhook
+    S->>A: POST /payments/webhook (body raw, header Stripe-Signature)
+    A->>A: Leer body como Bytes (ANTES de parsear)
+    A->>A: HMAC-SHA256 verify(body, Stripe-Signature, webhook_secret)
+    alt Firma válida
+        A->>A: Parsear evento JSON
+        alt payment_intent.succeeded
+            A->>DB: UPDATE payments SET status='succeeded' WHERE stripe_payment_intent_id=$1
+            A->>DB: UPDATE listings SET status='sold' WHERE id=$2
+            A-->>S: 200 { received: true }
+        else payment_intent.payment_failed
+            A->>DB: UPDATE payments SET status='failed' WHERE stripe_payment_intent_id=$1
+            A-->>S: 200 { received: true }
+        end
+    else Firma inválida
+        A-->>S: 400 { error: "Invalid signature" }
+    end
+```
+
+### 6.3 Flujo de búsqueda con MeiliSearch
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant A as Axum API
+    participant M as MeiliSearch
+    participant DB as PostgreSQL
+
+    C->>A: GET /search?q=bicicleta&category=sport&maxPrice=200
+    A->>A: Validar y parsear SearchQueryDto
+    A->>M: search("bicicleta", filters: "category=sport AND price <= 200", limit: 20)
+    alt MeiliSearch disponible
+        M-->>A: SearchResult { hits: [listing_ids], totalHits: 42 }
+        A->>DB: SELECT * FROM listings WHERE id = ANY($1) AND status = 'active'
+        DB-->>A: listings[]
+        A-->>C: 200 { data, total: 42, engine: "meilisearch" }
+    else MeiliSearch no disponible (timeout/error)
+        A->>DB: SELECT * FROM listings WHERE (title ILIKE '%bicicleta%' OR description ILIKE '%bicicleta%') AND category = 'sport' AND price <= 200 AND status = 'active' LIMIT 20
+        DB-->>A: listings[]
+        A-->>C: 200 { data, total, engine: "sql_fallback" }
+    end
+
+    Note over A,M: Indexación al crear/editar anuncio
+    A->>M: index_listing({ id, title, description, price, category, city, status })
+    M-->>A: Task { uid, status: "enqueued" }
+```
+
+### 6.4 Flujo de chat WebSocket
+
+```mermaid
+sequenceDiagram
+    participant C1 as Comprador (Browser)
+    participant C2 as Vendedor (Browser)
+    participant A as Axum API
+    participant DB as PostgreSQL
+    participant AC as ActiveConnections (DashMap)
+
+    Note over C1,AC: Establecer conexión WebSocket
+    C1->>A: GET /chat/:id/ws?token=<jwt> (Upgrade: websocket)
+    A->>A: verify_jwt(token) → Claims { sub: buyer_id }
+    A->>DB: SELECT is_member(conversation_id, buyer_id)
+    DB-->>A: true
+    A->>AC: insert((conversation_id, buyer_id), tx_sender)
+    A-->>C1: 101 Switching Protocols (WebSocket establecido)
+
+    Note over C1,AC: Enviar mensaje en tiempo real
+    C1->>A: WS Message: { "content": "¿Sigue disponible?" }
+    A->>A: Deserializar SendMessageDto
+    A->>A: Validar content (1-5000 chars)
+    A->>DB: INSERT INTO messages (conversation_id, sender_id, content)
+    DB-->>A: Message { id, created_at }
+    A->>DB: UPDATE conversations SET last_message = $1, updated_at = now()
+    A->>AC: get((conversation_id, seller_id))
+    alt Vendedor conectado
+        AC-->>A: Some(tx_sender)
+        A->>C2: WS Message: MessageResponseDto (tiempo real)
+    else Vendedor desconectado
+        AC-->>A: None
+        Note over A: Mensaje guardado en BD para polling posterior
+    end
+
+    Note over C1,AC: Desconexión y limpieza
+    C1->>A: Cierre de conexión WebSocket
+    A->>AC: remove((conversation_id, buyer_id))
+```
+
+---
+
+## 7. Estrategia de Despliegue
+
+### 7.1 Dockerfile multistage
+
+```dockerfile
+# ── Etapa 1: Builder ──────────────────────────────────────────────
+FROM rust:1.78-slim AS builder
+
+WORKDIR /app
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar manifiestos primero (aprovechar cache de Docker)
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ crates/
+
+# Build en modo release
+RUN cargo build --release --bin api
+
+# ── Etapa 2: Runtime ─────────────────────────────────────────────
+FROM debian:bookworm-slim AS runtime
+
+WORKDIR /app
+
+# Instalar solo dependencias de runtime
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar binario compilado
+COPY --from=builder /app/target/release/api ./nebripop
+
+# Copiar migraciones y templates
+COPY migrations/ ./migrations/
+COPY templates/ ./templates/
+COPY static/ ./static/
+
+# Puerto de exposición
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+CMD ["./nebripop"]
+```
+
+### 7.2 docker-compose.yml (entorno local)
+
+```yaml
+version: "3.9"
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://nebripop:nebripop@postgres:5432/nebripop
+      JWT_SECRET: ${JWT_SECRET}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      CLOUDINARY_URL: ${CLOUDINARY_URL}
+      MEILISEARCH_URL: http://meilisearch:7700
+      MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY}
+      RUST_LOG: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+
+  postgres:
+    image: postgis/postgis:15-3.4
+    environment:
+      POSTGRES_USER: nebripop
+      POSTGRES_PASSWORD: nebripop
+      POSTGRES_DB: nebripop
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nebripop"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.45.0
+    environment:
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY}
+      MEILI_ENV: development
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  meilisearch_data:
+```
+
+### 7.3 Variables de entorno
+
+| Variable | Descripción | Ejemplo | Obligatoria |
+|----------|-------------|---------|-------------|
+| `DATABASE_URL` | URL de conexión PostgreSQL | `postgres://user:pass@localhost:5432/nebripop` | ✅ Sí |
+| `JWT_SECRET` | Secret para firmar JWT (mín 32 chars) | `super_secret_key_min_32_chars_here` | ✅ Sí |
+| `STRIPE_SECRET_KEY` | Clave secreta Stripe (test o producción) | `sk_test_51...` | ✅ Sí |
+| `STRIPE_WEBHOOK_SECRET` | Secret para verificar webhooks Stripe | `whsec_...` | ✅ Sí |
+| `CLOUDINARY_URL` | URL de conexión Cloudinary con credenciales | `cloudinary://api_key:api_secret@cloud_name` | ⚠️ Opcional (fallback local) |
+| `MEILISEARCH_URL` | URL del servidor MeiliSearch | `http://localhost:7700` | ⚠️ Opcional (fallback SQL) |
+| `MEILISEARCH_MASTER_KEY` | Master key de MeiliSearch | `nebripop_master_key` | ⚠️ Opcional |
+| `RUST_LOG` | Nivel de logging (error/warn/info/debug) | `info` | No |
+| `PORT` | Puerto del servidor (default 8080) | `8080` | No |
+
+### 7.4 Topología en Railway
+
+```
+Railway Project: nebripop
+├── Service: nebripop-api
+│     Image: Docker (desde GitHub repo)
+│     Port: 8080
+│     Start command: ./nebripop
+│     Variables: todas las de la tabla 7.3
+│
+├── Service: nebripop-postgres
+│     Template: PostgreSQL 15
+│     Variable generada: DATABASE_URL
+│
+└── Service: nebripop-meilisearch
+      Template: MeiliSearch
+      Variable generada: MEILISEARCH_URL
+```
+
+### 7.5 Health checks
+
+| Servicio | Endpoint | Respuesta esperada |
+|----------|----------|-------------------|
+| API Axum | `GET /health` | `200 { "status": "ok", "version": "1.0.0" }` |
+| PostgreSQL | `pg_isready -U nebripop` | Exit code 0 |
+| MeiliSearch | `GET http://localhost:7700/health` | `200 { "status": "available" }` |
