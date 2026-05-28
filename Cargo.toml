@@ -4,6 +4,7 @@ members = [
     "crates/common",
     "crates/users",
     "crates/listings",
+    "crates/chat",
     "crates/ratings",
     "crates/favorites",
     "crates/geo",
@@ -30,6 +31,7 @@ jsonwebtoken = "9"
 argon2 = "0.5"
 validator = { version = "0.18", features = ["derive"] }
 dashmap = "6"
+futures-util = "0.3"
 dotenvy = "0.15"
 tower = "0.4"
 rust_decimal = { version = "1", features = ["serde-float"] }
