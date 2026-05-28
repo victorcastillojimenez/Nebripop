@@ -1,19 +1,15 @@
 [package]
 name = "listings"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
-axum.workspace = true
-tokio.workspace = true
-sqlx.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-uuid.workspace = true
-chrono.workspace = true
-thiserror.workspace = true
-tracing.workspace = true
-validator.workspace = true
-
 common = { path = "../common" }
 users = { path = "../users" }
+axum = { workspace = true }
+serde = { workspace = true }
+sqlx = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
