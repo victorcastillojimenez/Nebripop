@@ -1,5 +1,4 @@
 use sqlx::PgPool;
-use tracing;
 
 use crate::adapters::sql_fallback::SqlFallbackAdapter;
 use crate::dtos::{SearchQueryDto, SearchResponseDto, SearchResultDto};

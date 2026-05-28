@@ -22,6 +22,7 @@ impl SqlFallbackAdapter {
 
 /// Private row type for SQL fallback queries.
 /// Price is cast to FLOAT8 in SQL for direct f64 mapping.
+/// `distance_km` is computed via PostGIS ST_Distance when lat/lng filters are present.
 #[derive(Debug, sqlx::FromRow)]
 struct SqlResultRow {
     id: Uuid,
@@ -33,6 +34,31 @@ struct SqlResultRow {
     city: String,
     image_url: Option<String>,
     created_at: DateTime<Utc>,
+    /// Distance in km (NULL when geo not used).
+    distance_km: Option<f64>,
+}
+
+/// Internal helper to track parameter positions for dynamic SQL binding.
+/// All indices are 1-based (matching PostgreSQL `$N` notation).
+struct ParamTracker {
+    next: u32,
+}
+
+impl ParamTracker {
+    fn new() -> Self {
+        Self { next: 1 }
+    }
+
+    /// Reserve the next parameter index and return it.
+    fn reserve(&mut self) -> u32 {
+        let idx = self.next;
+        self.next += 1;
+        idx
+    }
+
+    fn current(&self) -> u32 {
+        self.next
+    }
 }
 
 #[async_trait]
@@ -43,48 +69,76 @@ impl SearchEngine for SqlFallbackAdapter {
     ) -> Result<(Vec<SearchResult>, i64), SearchError> {
         let per_page = filters.limit();
         let offset = filters.offset();
+        let has_geo = filters.lat.is_some() && filters.lng.is_some();
 
-        // ── Build WHERE clause using $1, $2, ... positional params ──
-        // The order of conditions must match the order of bind() calls.
-        // Condition order: q (ILIlKE), category, min_price, max_price.
+        // ── Reserve parameter indices ──
+        // Bind order: q, category, min_price, max_price, radius_m, lat, lng, limit, offset
+        let mut pt = ParamTracker::new();
+
+        let q_idx = if filters.q.is_some() { Some(pt.reserve()) } else { None };
+        let cat_idx = if filters.category.is_some() { Some(pt.reserve()) } else { None };
+        let min_p_idx = if filters.min_price.is_some() { Some(pt.reserve()) } else { None };
+        let max_p_idx = if filters.max_price.is_some() { Some(pt.reserve()) } else { None };
+
+        let (radius_idx, lat_idx, lng_idx) = if has_geo {
+            (
+                Some(pt.reserve()),
+                Some(pt.reserve()),
+                Some(pt.reserve()),
+            )
+        } else {
+            (None, None, None)
+        };
+
+        let limit_idx = pt.reserve();
+        let offset_idx = pt.reserve();
+
+        // ── Build WHERE conditions ──
         let mut conditions: Vec<String> = vec!["l.status = 'active'".to_string()];
-        let mut param_idx = 0u32;
 
-        // Track which filters are active to know how many binds to issue
-        let has_q = filters.q.is_some();
-        let has_category = filters.category.is_some();
-        let has_min_price = filters.min_price.is_some();
-        let has_max_price = filters.max_price.is_some();
-
-        if has_q {
-            param_idx += 1;
+        if let Some(idx) = q_idx {
             conditions.push(format!(
                 "(l.title ILIKE ${idx} OR l.description ILIKE ${idx})",
-                idx = param_idx
+                idx = idx
             ));
         }
-        if has_category {
-            param_idx += 1;
-            conditions.push(format!("l.category = ${}", param_idx));
+        if let Some(idx) = cat_idx {
+            conditions.push(format!("l.category = ${idx}", idx = idx));
         }
-        if has_min_price {
-            param_idx += 1;
-            conditions.push(format!("l.price >= ${}::numeric", param_idx));
+        if let Some(idx) = min_p_idx {
+            conditions.push(format!("l.price >= ${idx}::numeric", idx = idx));
         }
-        if has_max_price {
-            param_idx += 1;
-            conditions.push(format!("l.price <= ${}::numeric", param_idx));
+        if let Some(idx) = max_p_idx {
+            conditions.push(format!("l.price <= ${idx}::numeric", idx = idx));
+        }
+        if let (Some(r_idx), Some(la_idx), Some(lo_idx)) = (radius_idx, lat_idx, lng_idx) {
+            conditions.push(format!(
+                "ST_DWithin(l.location, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326), ${radius})",
+                lng = lo_idx,
+                lat = la_idx,
+                radius = r_idx,
+            ));
         }
 
         let where_clause = conditions.join(" AND ");
-        let limit_param = param_idx + 1;
-        let offset_param = param_idx + 2;
 
-        // ── Build COUNT query ──
-        let count_sql = format!(
-            "SELECT COUNT(*)::int8 FROM listings l WHERE {}",
-            where_clause
-        );
+        // ── ORDER BY ──
+        let order_clause = if has_geo {
+            "ORDER BY distance_km ASC".to_string()
+        } else {
+            "ORDER BY l.created_at DESC".to_string()
+        };
+
+        // ── Distance expression for SELECT ──
+        let distance_expr = if let (Some(la_idx), Some(lo_idx)) = (lat_idx, lng_idx) {
+            format!(
+                "ST_Distance(l.location, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography) / 1000.0 AS distance_km",
+                lng = lo_idx,
+                lat = la_idx,
+            )
+        } else {
+            "NULL::float8 AS distance_km".to_string()
+        };
 
         // ── Build SELECT query ──
         let select_sql = format!(
@@ -92,28 +146,44 @@ impl SearchEngine for SqlFallbackAdapter {
                       l.condition, l.city, l.created_at,
                       (SELECT li.image_url FROM listing_images li
                        WHERE li.listing_id = l.id
-                       ORDER BY li.position ASC LIMIT 1) AS "image_url"
+                       ORDER BY li.position ASC LIMIT 1) AS "image_url",
+                      {distance}
                FROM listings l
-               WHERE {}
-               ORDER BY l.created_at DESC
-               LIMIT ${} OFFSET ${}"#,
-            where_clause, limit_param, offset_param,
+               WHERE {where}
+               {order}
+               LIMIT ${limit} OFFSET ${offset}"#,
+            distance = distance_expr,
+            where = where_clause,
+            order = order_clause,
+            limit = limit_idx,
+            offset = offset_idx,
+        );
+
+        // ── Build COUNT query (same WHERE, no geo columns needed) ──
+        let count_sql = format!(
+            "SELECT COUNT(*)::int8 FROM listings l WHERE {where}",
+            where = where_clause,
         );
 
         // ── Execute COUNT ──
         let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql);
-        if has_q {
-            let pattern = format!("%{}%", filters.q.as_deref().unwrap_or(""));
-            count_query = count_query.bind(pattern);
+        if let Some(ref q) = filters.q {
+            count_query = count_query.bind(format!("%{}%", q));
         }
-        if has_category {
-            count_query = count_query.bind(filters.category.as_deref().unwrap_or(""));
+        if let Some(ref cat) = filters.category {
+            count_query = count_query.bind(cat);
         }
-        if has_min_price {
-            count_query = count_query.bind(filters.min_price.unwrap_or(0.0));
+        if let Some(min) = filters.min_price {
+            count_query = count_query.bind(min);
         }
-        if has_max_price {
-            count_query = count_query.bind(filters.max_price.unwrap_or(0.0));
+        if let Some(max) = filters.max_price {
+            count_query = count_query.bind(max);
+        }
+        if let (Some(_), Some(lat), Some(lng)) = (radius_idx, filters.lat, filters.lng) {
+            let radius_m = filters.radius_km.unwrap_or(50.0).max(1.0) * 1000.0;
+            count_query = count_query.bind(radius_m);
+            count_query = count_query.bind(lat);
+            count_query = count_query.bind(lng);
         }
 
         let total = count_query.fetch_one(&self.pool).await.map_err(|e| {
@@ -123,18 +193,23 @@ impl SearchEngine for SqlFallbackAdapter {
 
         // ── Execute SELECT ──
         let mut select_query = sqlx::query_as::<_, SqlResultRow>(&select_sql);
-        if has_q {
-            let pattern = format!("%{}%", filters.q.as_deref().unwrap_or(""));
-            select_query = select_query.bind(pattern);
+        if let Some(ref q) = filters.q {
+            select_query = select_query.bind(format!("%{}%", q));
         }
-        if has_category {
-            select_query = select_query.bind(filters.category.as_deref().unwrap_or(""));
+        if let Some(ref cat) = filters.category {
+            select_query = select_query.bind(cat);
         }
-        if has_min_price {
-            select_query = select_query.bind(filters.min_price.unwrap_or(0.0));
+        if let Some(min) = filters.min_price {
+            select_query = select_query.bind(min);
         }
-        if has_max_price {
-            select_query = select_query.bind(filters.max_price.unwrap_or(0.0));
+        if let Some(max) = filters.max_price {
+            select_query = select_query.bind(max);
+        }
+        if let (Some(_), Some(lat), Some(lng)) = (radius_idx, filters.lat, filters.lng) {
+            let radius_m = filters.radius_km.unwrap_or(50.0).max(1.0) * 1000.0;
+            select_query = select_query.bind(radius_m);
+            select_query = select_query.bind(lat);
+            select_query = select_query.bind(lng);
         }
         select_query = select_query.bind(per_page).bind(offset);
 
@@ -155,7 +230,7 @@ impl SearchEngine for SqlFallbackAdapter {
                 condition: row.condition,
                 city: row.city,
                 image_url: row.image_url,
-                distance_km: None, // SQL fallback doesn't compute distance
+                distance_km: row.distance_km,
                 created_at: row.created_at.timestamp(),
             })
             .collect();

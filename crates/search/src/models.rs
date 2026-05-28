@@ -1,6 +1,13 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Geo-coordinates for MeiliSearch `_geo` field.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Geo {
+    pub lat: f64,
+    pub lng: f64,
+}
+
 /// A search result returned from the search engine.
 /// This is intentionally NOT a domain entity — it is a read-only projection
 /// optimised for display in search/list views.
@@ -116,11 +123,8 @@ pub struct ListingDoc {
     pub status: String,
     pub city: String,
 
-    /// Latitude for geo-search.
-    pub location_lat: f64,
-
-    /// Longitude for geo-search.
-    pub location_lon: f64,
+    /// Geo-coordinates for `_geoRadius` filter.
+    pub _geo: Option<Geo>,
 
     /// Timestamp as Unix epoch seconds (for sorting).
     pub created_at: i64,

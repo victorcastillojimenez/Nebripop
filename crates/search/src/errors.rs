@@ -15,17 +15,9 @@ pub enum SearchError {
     #[error("Parámetros de búsqueda inválidos: {0}")]
     InvalidParams(String),
 
-    /// Invalid search filter parameters.
-    #[error("Filtros de búsqueda inválidos: {0}")]
-    InvalidFilters(String),
-
     /// Index setup error.
     #[error("Error de configuración del índice: {0}")]
     IndexSetup(String),
-
-    /// Internal/search engine error.
-    #[error("Error interno: {0}")]
-    Internal(String),
 }
 
 impl From<sqlx::Error> for SearchError {
@@ -38,7 +30,6 @@ impl From<SearchError> for common::errors::AppError {
     fn from(e: SearchError) -> Self {
         match e {
             SearchError::InvalidParams(msg) => common::errors::AppError::BadRequest(msg),
-            SearchError::InvalidFilters(msg) => common::errors::AppError::BadRequest(msg),
             SearchError::MeiliSearchError(msg) => {
                 tracing::warn!("MeiliSearch error: {}", msg);
                 common::errors::AppError::Internal(format!("Error del motor de búsqueda: {msg}"))
@@ -51,11 +42,6 @@ impl From<SearchError> for common::errors::AppError {
                 tracing::error!("Search index setup error: {}", msg);
                 common::errors::AppError::Internal("Error de configuración del motor de búsqueda".to_string())
             }
-            SearchError::Internal(msg) => {
-                tracing::error!("Internal search error: {}", msg);
-                common::errors::AppError::Internal(msg)
-            }
-            
         }
     }
 }

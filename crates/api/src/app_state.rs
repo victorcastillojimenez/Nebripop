@@ -25,7 +25,6 @@ pub struct AppState {
     pub listing_repo: ListingRepositoryImpl,
     pub image_storage: ImageStorageImpl,
     pub search_engine: Option<MeiliSearchAdapter>,
-    pub active_connections: Arc<DashMap<(Uuid, Uuid), UnboundedSender<WsMessage>>>,
 }
 
 impl AppState {
@@ -66,7 +65,6 @@ impl AppState {
             listing_repo,
             image_storage,
             search_engine,
-            active_connections: Arc::new(DashMap::new()),
         })
     }
 
@@ -89,7 +87,16 @@ impl AppState {
 
         let api_key = std::env::var("MEILISEARCH_API_KEY").ok();
 
-        let engine = MeiliSearchAdapter::new(&meili_url, api_key.as_deref());
+        let engine = match MeiliSearchAdapter::new(&meili_url, api_key.as_deref()) {
+            Ok(e) => e,
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "Failed to create MeiliSearch client — search will use SQL ILIKE fallback"
+                );
+                return None;
+            }
+        };
 
         // Attempt index setup; warn on failure but don't crash startup
         match engine.setup_index().await {
@@ -131,6 +138,9 @@ impl axum::extract::FromRef<AppState> for MessageRepository {
 impl axum::extract::FromRef<AppState> for ActiveConnections {
     fn from_ref(state: &AppState) -> Self {
         state.active_connections.clone()
+    }
+}
+
 impl axum::extract::FromRef<AppState> for RatingRepository {
     fn from_ref(state: &AppState) -> Self {
         state.rating_repo.clone()

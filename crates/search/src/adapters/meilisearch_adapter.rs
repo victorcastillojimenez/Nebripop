@@ -17,54 +17,70 @@ pub struct MeiliSearchAdapter {
 }
 
 impl MeiliSearchAdapter {
-    pub fn new(url: &str, api_key: Option<&str>) -> Self {
+    /// Create a new MeiliSearch adapter.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SearchError::MeiliSearchError` if the client cannot connect.
+    pub fn new(url: &str, api_key: Option<&str>) -> Result<Self, SearchError> {
         let client = match api_key {
             Some(key) => Client::new(url, Some(key)),
             None => Client::new(url, None::<&str>),
-        };
-        Self { client: client.expect("Failed to create Meilisearch client") }
+        }
+        .map_err(|e| SearchError::MeiliSearchError(format!("Failed to create Meilisearch client: {e}")))?;
+
+        Ok(Self { client })
     }
 
+    /// Get the existing index or create it if it does not exist (idempotent).
     async fn get_or_create_index(&self) -> Result<Index, SearchError> {
+        // List existing indexes to check if ours already exists
+        let existing = self
+            .client
+            .list_all_indexes()
+            .await
+            .map_err(|e| SearchError::IndexSetup(format!("Failed to list indexes: {e}")))?;
+
+        if existing.iter().any(|i| i.uid == LISTINGS_INDEX) {
+            return Ok(self.client.index(LISTINGS_INDEX));
+        }
+
+        // Index does not exist — create it
         let task = self
             .client
             .create_index(LISTINGS_INDEX, Some("id"))
             .await
             .map_err(|e| SearchError::IndexSetup(format!("Failed to create index: {e}")))?;
 
-        // Usar wait_for_task con el Task completo, no con el uid
-        let _ = self
-            .client
+        self.client
             .wait_for_task(
                 task,
                 Some(std::time::Duration::from_millis(500)),
                 Some(std::time::Duration::from_secs(5)),
             )
             .await
-            .ok();
+            .map_err(|e| SearchError::IndexSetup(format!("Failed waiting for index creation: {e}")))?;
 
         Ok(self.client.index(LISTINGS_INDEX))
     }
 
+    /// Ensure the index exists with the correct settings (idempotent).
     pub async fn setup_index(&self) -> Result<(), SearchError> {
         let index = self.get_or_create_index().await?;
 
         index
             .set_searchable_attributes(["title", "description", "city"])
-            .await
-            .map_err(|e| SearchError::IndexSetup(format!("Failed to set searchable attributes: {e}")))?;
+            .await?;
 
         index
             .set_filterable_attributes(["category", "price", "status", "_geo"])
-            .await
-            .map_err(|e| SearchError::IndexSetup(format!("Failed to set filterable attributes: {e}")))?;
+            .await?;
 
         index
             .set_sortable_attributes(["price", "created_at"])
-            .await
-            .map_err(|e| SearchError::IndexSetup(format!("Failed to set sortable attributes: {e}")))?;
+            .await?;
 
-        tracing::info!("MeiliSearch index '{}' configured successfully", LISTINGS_INDEX);
+        tracing::info!("MeiliSearch index '{LISTINGS_INDEX}' configured successfully");
 
         Ok(())
     }
@@ -80,19 +96,15 @@ impl MeiliSearchAdapter {
         }
 
         if let Some(min) = filters.min_price {
-            parts.push(format!("price >= {}", min));
+            parts.push(format!("price >= {min}"));
         }
         if let Some(max) = filters.max_price {
-            parts.push(format!("price <= {}", max));
+            parts.push(format!("price <= {max}"));
         }
 
         if let (Some(lat), Some(lng)) = (filters.lat, filters.lng) {
-            let radius_m = filters
-                .radius_km
-                .unwrap_or(50.0)
-                .max(1.0)
-                * 1000.0;
-            parts.push(format!("_geoRadius({}, {}, {})", lat, lng, radius_m));
+            let radius_m = filters.radius_km.unwrap_or(50.0).max(1.0) * 1000.0;
+            parts.push(format!("_geoRadius({lat}, {lng}, {radius_m})"));
         }
 
         parts.join(" AND ")
@@ -100,9 +112,9 @@ impl MeiliSearchAdapter {
 
     fn build_sort(sort: Option<&str>) -> Option<Vec<String>> {
         match sort {
-            Some("price_asc")  => Some(vec!["price:asc".to_string()]),
+            Some("price_asc") => Some(vec!["price:asc".to_string()]),
             Some("price_desc") => Some(vec!["price:desc".to_string()]),
-            Some("date_desc")  => Some(vec!["created_at:desc".to_string()]),
+            Some("date_desc") => Some(vec!["created_at:desc".to_string()]),
             _ => None,
         }
     }
@@ -115,27 +127,24 @@ impl SearchEngine for MeiliSearchAdapter {
         filters: &SearchFilters,
     ) -> Result<(Vec<SearchResult>, i64), SearchError> {
         let index = self.client.index(LISTINGS_INDEX);
-        let query = filters.q.as_deref().unwrap_or("").to_string();
-        let filter_string = Self::build_filter(filters);
-        let sort = Self::build_sort(filters.sort.as_deref());
         let limit = filters.limit() as usize;
         let offset = filters.offset() as usize;
 
-        // Construir sort_refs con lifetime suficiente
-        let sort_strings: Vec<String> = sort.unwrap_or_default();
-        let sort_refs: Vec<&str> = sort_strings.iter().map(|s| s.as_str()).collect();
+        // Build filter, query, and sort strings with sufficient lifetimes
+        let query_owned = filters.q.as_deref().unwrap_or("").to_string();
+        let filter_owned = Self::build_filter(filters);
+        let sort_vec: Vec<String> = Self::build_sort(filters.sort.as_deref()).unwrap_or_default();
 
-        // Binding explícito para que filter_string viva suficiente
-        let filter_str = filter_string.as_str();
+        // ── Build the MeiliSearch query ──
         let mut search = index.search();
-        search.query = Some(query.as_str());
+        search.with_query(&query_owned);
 
-        if !filter_string.is_empty() {
-            search.with_filter(filter_str);
+        if !filter_owned.is_empty() {
+            search.with_filter(&filter_owned);
         }
 
-        if !sort_refs.is_empty() {
-            search.with_sort(sort_refs.as_slice());
+        if !sort_vec.is_empty() {
+            search.with_sort(sort_vec);
         }
 
         search.with_limit(limit);
@@ -159,9 +168,9 @@ impl SearchEngine for MeiliSearchAdapter {
                     .and_then(|v| v.as_str())
                     .unwrap_or("eur")
                     .to_string();
-                let category  = doc.get("category")?.as_str()?.to_string();
+                let category = doc.get("category")?.as_str()?.to_string();
                 let condition = doc.get("condition")?.as_str()?.to_string();
-                let city      = doc.get("city")?.as_str()?.to_string();
+                let city = doc.get("city")?.as_str()?.to_string();
                 let image_url = doc
                     .get("image_url")
                     .and_then(|v| v.as_str())
