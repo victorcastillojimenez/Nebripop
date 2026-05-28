@@ -4,6 +4,9 @@ use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
+use favorites::adapters::favorite_repository::FavoriteRepository;
+use geo::adapters::geo_repository::GeoRepository;
+use ratings::adapters::rating_repository::RatingRepository;
 use users::adapters::user_repository::UserRepository;
 
 /// Message type for WebSocket connections (placeholder for chat feature)
@@ -17,6 +20,9 @@ pub struct AppState {
     pub pool: PgPool,
     pub jwt_secret: String,
     pub user_repo: UserRepository,
+    pub rating_repo: RatingRepository,
+    pub favorite_repo: FavoriteRepository,
+    pub geo_repo: GeoRepository,
     pub active_connections: Arc<DashMap<(Uuid, Uuid), UnboundedSender<WsMessage>>>,
 }
 
@@ -32,11 +38,17 @@ impl AppState {
             .map_err(|_| "JWT_SECRET must be set".to_string())?;
 
         let user_repo = UserRepository::new(pool.clone());
+        let rating_repo = RatingRepository::new(pool.clone());
+        let favorite_repo = FavoriteRepository::new(pool.clone());
+        let geo_repo = GeoRepository::new(pool.clone());
 
         Ok(Self {
             pool,
             jwt_secret,
             user_repo,
+            rating_repo,
+            favorite_repo,
+            geo_repo,
             active_connections: Arc::new(DashMap::new()),
         })
     }
@@ -46,6 +58,24 @@ impl AppState {
 impl axum::extract::FromRef<AppState> for UserRepository {
     fn from_ref(state: &AppState) -> Self {
         state.user_repo.clone()
+    }
+}
+
+impl axum::extract::FromRef<AppState> for RatingRepository {
+    fn from_ref(state: &AppState) -> Self {
+        state.rating_repo.clone()
+    }
+}
+
+impl axum::extract::FromRef<AppState> for FavoriteRepository {
+    fn from_ref(state: &AppState) -> Self {
+        state.favorite_repo.clone()
+    }
+}
+
+impl axum::extract::FromRef<AppState> for GeoRepository {
+    fn from_ref(state: &AppState) -> Self {
+        state.geo_repo.clone()
     }
 }
 

@@ -13,6 +13,7 @@ uuid.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+rust_decimal.workspace = true
 
 common = { path = "../common" }
 users = { path = "../users" }

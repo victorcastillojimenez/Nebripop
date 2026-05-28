@@ -4,6 +4,9 @@ members = [
     "crates/common",
     "crates/users",
     "crates/listings",
+    "crates/ratings",
+    "crates/favorites",
+    "crates/geo",
 ]
 resolver = "2"
 
