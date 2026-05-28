@@ -129,11 +129,23 @@ let user = repo.find_by_id(id).map_err(|e| DomainError::UserNotFound(e))?;
 **Próximo paso:** Devolver al agente generador con estas instrucciones para corrección.
 ```
 
-### Paso 4: Publicar resultado en GitHub
+### Paso 4: Publicar y ejecutar acciones en GitHub
 Usa `github-mcp` para:
-- Publicar el veredicto como **review comment** en el PR (no como simple comentario)
-- Si APROBADO: `APPROVE`
-- Si RECHAZADO: `REQUEST_CHANGES` con los comentarios en las líneas exactas
+
+#### Al emitir veredicto APROBADO:
+1. Publicar el veredicto como **review comment** `APPROVE` en el PR.
+2. Hacer **merge automático** del PR usando la tool `merge_pull_request` con:
+   - `merge_method`: `squash`
+   - `commit_title`: El título original del PR.
+3. Confirmar en el chat que el merge se ha completado satisfactoriamente.
+
+#### Al emitir veredicto RECHAZADO:
+1. Publicar el veredicto como **review comment** `REQUEST_CHANGES` con los problemas encontrados detallados por línea.
+2. **NO realizar el merge**.
+3. Indicar claramente al agente generador qué puntos específicos debe corregir.
+
+> [!IMPORTANT]
+> El base branch para los Pull Requests es siempre `main`, nunca `develop`.
 
 ---
 
