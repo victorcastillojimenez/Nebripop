@@ -18,24 +18,23 @@ pub fn build_router() -> Router<AppState> {
     // Import sub-routers
     let users_router = users::router::users_router::<AppState>();
     let chat_router = chat::router::chat_router::<AppState>();
-    // Import routers from each crate
-
     let ratings_router = ratings::router::ratings_router::<AppState>();
     let favorites_router = favorites::router::favorites_router::<AppState>();
     let geo_router = geo::router::geo_router::<AppState>();
     let listings_router = listings::router::listings_router::<AppState>();
+    let payments_router = payments::router::payments_router::<AppState>();
 
     Router::new()
         // Health check
         .route("/health", get(health_check))
         // Mount each module's router
         .merge(users_router)
-        // Mount chat router under /chat prefix
         .merge(chat_router)
         .merge(ratings_router)
         .merge(favorites_router)
         .merge(geo_router)
         .merge(listings_router)
+        .merge(payments_router)
         // Global middleware
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
