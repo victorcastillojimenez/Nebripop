@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
@@ -63,10 +64,9 @@ impl From<crate::models::User> for UserDto {
             display_name: user.display_name,
             avatar_url: user.avatar_url,
             role: user.role,
-            rating_avg: user.rating_avg.map(|d| {
-                let f: f64 = d.to_string().parse().unwrap_or(0.0);
-                f
-            }).unwrap_or(0.0),
+            rating_avg: user.rating_avg
+                .and_then(|d| d.to_f64())
+                .unwrap_or(0.0),
             total_ratings: user.total_ratings,
             created_at: user.created_at,
         }

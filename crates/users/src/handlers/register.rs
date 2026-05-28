@@ -27,8 +27,8 @@ pub async fn register_handler(
             UserError::EmailAlreadyExists => {
                 AppError::Conflict("El email ya está registrado".to_string())
             }
-            UserError::DatabaseError(msg) => {
-                tracing::error!("Database error during register: {}", msg);
+            UserError::DatabaseError(db_err) => {
+                tracing::error!("Database error during register: {}", db_err);
                 AppError::Internal("Error al crear usuario".to_string())
             }
             UserError::CryptoError(msg) => {
