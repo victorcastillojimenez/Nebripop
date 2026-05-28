@@ -15,7 +15,7 @@ pub enum UserError {
     InvalidToken,
 
     #[error("Error de base de datos: {0}")]
-    DatabaseError(String),
+    DatabaseError(#[from] sqlx::Error),
 
     #[error("Error de criptografía: {0}")]
     CryptoError(String),

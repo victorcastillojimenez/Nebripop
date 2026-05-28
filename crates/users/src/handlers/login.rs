@@ -27,13 +27,13 @@ pub async fn login_handler(
             UserError::InvalidCredentials => {
                 AppError::Unauthorized("Credenciales incorrectas".to_string())
             }
-            UserError::DatabaseError(msg) => {
-                tracing::error!("Database error during login: {}", msg);
-                AppError::Unauthorized("Credenciales incorrectas".to_string())
+            UserError::DatabaseError(db_err) => {
+                tracing::error!("Database error during login: {}", db_err);
+                AppError::Internal("Error interno del servidor".to_string())
             }
             UserError::CryptoError(msg) => {
                 tracing::error!("Crypto error during login: {}", msg);
-                AppError::Unauthorized("Credenciales incorrectas".to_string())
+                AppError::Internal("Error interno del servidor".to_string())
             }
             _ => AppError::Unauthorized("Credenciales incorrectas".to_string()),
         })?;

@@ -18,3 +18,4 @@ argon2 = { workspace = true }
 validator = { workspace = true }
 tokio = { workspace = true }
 rust_decimal = { workspace = true }
+async-trait = { workspace = true }

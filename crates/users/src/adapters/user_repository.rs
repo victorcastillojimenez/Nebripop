@@ -1,9 +1,11 @@
+use async_trait::async_trait;
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::errors::UserError;
 use crate::models::User;
+use crate::ports::UserRepositoryPort;
 
 #[derive(Debug, Clone)]
 pub struct UserRepository {
@@ -14,32 +16,33 @@ impl UserRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
+}
 
-    pub async fn find_by_email(&self, email: &str) -> Result<Option<User>, UserError> {
+#[async_trait]
+impl UserRepositoryPort for UserRepository {
+    async fn find_by_email(&self, email: &str) -> Result<Option<User>, UserError> {
         let user = sqlx::query_as::<_, User>(
             "SELECT id, email, password_hash, display_name, avatar_url, phone, role, rating_avg, total_ratings, last_login_at, created_at, updated_at FROM users WHERE email = $1",
         )
         .bind(email)
         .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| UserError::DatabaseError(e.to_string()))?;
+        .await?;
 
         Ok(user)
     }
 
-    pub async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, UserError> {
+    async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, UserError> {
         let user = sqlx::query_as::<_, User>(
             "SELECT id, email, password_hash, display_name, avatar_url, phone, role, rating_avg, total_ratings, last_login_at, created_at, updated_at FROM users WHERE id = $1",
         )
         .bind(id)
         .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| UserError::DatabaseError(e.to_string()))?;
+        .await?;
 
         Ok(user)
     }
 
-    pub async fn insert(
+    async fn insert(
         &self,
         email: &str,
         password_hash: &str,
@@ -59,19 +62,18 @@ impl UserRepository {
                     return UserError::EmailAlreadyExists;
                 }
             }
-            UserError::DatabaseError(e.to_string())
+            UserError::DatabaseError(e)
         })?;
 
         Ok(user)
     }
 
-    pub async fn update_last_login(&self, id: Uuid) -> Result<(), UserError> {
+    async fn update_last_login(&self, id: Uuid) -> Result<(), UserError> {
         sqlx::query("UPDATE users SET last_login_at = $1, updated_at = $1 WHERE id = $2")
             .bind(Utc::now())
             .bind(id)
             .execute(&self.pool)
-            .await
-            .map_err(|e| UserError::DatabaseError(e.to_string()))?;
+            .await?;
 
         Ok(())
     }
