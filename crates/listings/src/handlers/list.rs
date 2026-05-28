@@ -4,6 +4,7 @@ use axum::Json;
 use crate::adapters::listing_repository::ListingRepositoryImpl;
 use crate::dtos::{ListingSummaryDto, PaginatedResponse, PaginationParams};
 use crate::errors::map_listing_error;
+use crate::ports::ListingRepository;
 
 use common::errors::AppError;
 

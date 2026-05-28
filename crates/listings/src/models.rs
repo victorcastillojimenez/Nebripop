@@ -27,7 +27,7 @@ impl From<ListingId> for Uuid {
 }
 
 /// Physical condition of the item being listed.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum PhysicalCondition {
     New,
@@ -55,7 +55,7 @@ impl PhysicalCondition {
 }
 
 /// Logical status of a listing in the system lifecycle.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ListingStatus {
     Active,

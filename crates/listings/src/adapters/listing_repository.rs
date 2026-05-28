@@ -194,11 +194,39 @@ impl ListingRepository for ListingRepositoryImpl {
             })?
         };
 
-        // Enrich each listing with its images
+        // Enrich each listing with its images in a single batch query (resolves N+1)
+        if rows.is_empty() {
+            return Ok((vec![], total.0));
+        }
+
+        let listing_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+        let images_rows = sqlx::query_as::<_, ListingImageRow>(
+            r#"SELECT id, listing_id, image_url, position
+               FROM listing_images
+               WHERE listing_id = ANY($1)
+               ORDER BY position ASC"#,
+        )
+        .bind(&listing_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database error in find_all_paginated images: {}", e);
+            ListingError::Database(e)
+        })?;
+
+        use std::collections::HashMap;
+        let mut images_by_listing: HashMap<Uuid, Vec<ListingImage>> = HashMap::new();
+        for img_row in images_rows {
+            images_by_listing
+                .entry(img_row.listing_id)
+                .or_default()
+                .push(ListingImage::from(img_row));
+        }
+
         let mut listings = Vec::with_capacity(rows.len());
         for row in rows {
             let mut listing: Listing = row.try_into()?;
-            listing.images = self.find_images_by_listing(listing.id.0).await?;
+            listing.images = images_by_listing.remove(&listing.id.0).unwrap_or_default();
             listings.push(listing);
         }
 
@@ -243,10 +271,38 @@ impl ListingRepository for ListingRepositoryImpl {
             ListingError::Database(e)
         })?;
 
+        if rows.is_empty() {
+            return Ok((vec![], total.0));
+        }
+
+        let listing_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+        let images_rows = sqlx::query_as::<_, ListingImageRow>(
+            r#"SELECT id, listing_id, image_url, position
+               FROM listing_images
+               WHERE listing_id = ANY($1)
+               ORDER BY position ASC"#,
+        )
+        .bind(&listing_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database error in find_by_seller images: {}", e);
+            ListingError::Database(e)
+        })?;
+
+        use std::collections::HashMap;
+        let mut images_by_listing: HashMap<Uuid, Vec<ListingImage>> = HashMap::new();
+        for img_row in images_rows {
+            images_by_listing
+                .entry(img_row.listing_id)
+                .or_default()
+                .push(ListingImage::from(img_row));
+        }
+
         let mut listings = Vec::with_capacity(rows.len());
         for row in rows {
             let mut listing: Listing = row.try_into()?;
-            listing.images = self.find_images_by_listing(listing.id.0).await?;
+            listing.images = images_by_listing.remove(&listing.id.0).unwrap_or_default();
             listings.push(listing);
         }
 

@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use uuid::Uuid;
 
 use crate::errors::ListingError;
-use crate::models::{Listing, ListingImage, ListingStatus, PhysicalCondition};
+use crate::models::{Listing, ListingImage, PhysicalCondition};
 
 /// Primary port (repository interface) for listing persistence.
 /// Defined in the domain so usecases depend on this trait, not on infrastructure.
