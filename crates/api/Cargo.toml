@@ -6,6 +6,10 @@ edition.workspace = true
 [dependencies]
 common = { path = "../common" }
 users = { path = "../users" }
+listings = { path = "../listings" }
+ratings = { path = "../ratings" }
+favorites = { path = "../favorites" }
+geo = { path = "../geo" }
 axum = { workspace = true }
 tokio = { workspace = true }
 sqlx = { workspace = true }
