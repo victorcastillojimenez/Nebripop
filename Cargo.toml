@@ -5,6 +5,7 @@ members = [
     "crates/users",
     "crates/listings",
     "crates/chat",
+    "crates/search",
     "crates/ratings",
     "crates/favorites",
     "crates/geo",
@@ -36,3 +37,4 @@ dotenvy = "0.15"
 tower = "0.4"
 rust_decimal = { version = "1", features = ["serde-float"] }
 async-trait = "0.1"
+meilisearch-sdk = "0.27"
