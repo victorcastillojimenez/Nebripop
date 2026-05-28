@@ -55,6 +55,12 @@ impl From<SearchError> for common::errors::AppError {
                 tracing::error!("Internal search error: {}", msg);
                 common::errors::AppError::Internal(msg)
             }
+            
         }
+    }
+}
+impl From<meilisearch_sdk::errors::Error> for SearchError {
+    fn from(e: meilisearch_sdk::errors::Error) -> Self {
+        SearchError::MeiliSearchError(e.to_string())
     }
 }
