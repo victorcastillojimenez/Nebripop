@@ -5,6 +5,9 @@ members = [
     "crates/users",
     "crates/listings",
     "crates/chat",
+    "crates/ratings",
+    "crates/favorites",
+    "crates/geo",
 ]
 resolver = "2"
 
@@ -32,3 +35,4 @@ futures-util = "0.3"
 dotenvy = "0.15"
 tower = "0.4"
 rust_decimal = { version = "1", features = ["serde-float"] }
+async-trait = "0.1"

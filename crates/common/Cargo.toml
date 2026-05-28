@@ -10,3 +10,4 @@ uuid = { workspace = true }
 axum = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+jsonwebtoken = { workspace = true }
