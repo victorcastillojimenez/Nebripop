@@ -6,6 +6,8 @@ use uuid::Uuid;
 
 use favorites::adapters::favorite_repository::FavoriteRepository;
 use geo::adapters::geo_repository::GeoRepository;
+use listings::adapters::cloudinary::ImageStorageImpl;
+use listings::adapters::listing_repository::ListingRepositoryImpl;
 use ratings::adapters::rating_repository::RatingRepository;
 use users::adapters::user_repository::UserRepository;
 
@@ -23,6 +25,8 @@ pub struct AppState {
     pub rating_repo: RatingRepository,
     pub favorite_repo: FavoriteRepository,
     pub geo_repo: GeoRepository,
+    pub listing_repo: ListingRepositoryImpl,
+    pub image_storage: ImageStorageImpl,
     pub active_connections: Arc<DashMap<(Uuid, Uuid), UnboundedSender<WsMessage>>>,
 }
 
@@ -41,6 +45,8 @@ impl AppState {
         let rating_repo = RatingRepository::new(pool.clone());
         let favorite_repo = FavoriteRepository::new(pool.clone());
         let geo_repo = GeoRepository::new(pool.clone());
+        let listing_repo = ListingRepositoryImpl::new(pool.clone());
+        let image_storage = ImageStorageImpl::new();
 
         Ok(Self {
             pool,
@@ -49,6 +55,8 @@ impl AppState {
             rating_repo,
             favorite_repo,
             geo_repo,
+            listing_repo,
+            image_storage,
             active_connections: Arc::new(DashMap::new()),
         })
     }
@@ -88,5 +96,17 @@ impl axum::extract::FromRef<AppState> for String {
 impl axum::extract::FromRef<AppState> for PgPool {
     fn from_ref(state: &AppState) -> Self {
         state.pool.clone()
+    }
+}
+
+impl axum::extract::FromRef<AppState> for ListingRepositoryImpl {
+    fn from_ref(state: &AppState) -> Self {
+        state.listing_repo.clone()
+    }
+}
+
+impl axum::extract::FromRef<AppState> for ImageStorageImpl {
+    fn from_ref(state: &AppState) -> Self {
+        state.image_storage.clone()
     }
 }
