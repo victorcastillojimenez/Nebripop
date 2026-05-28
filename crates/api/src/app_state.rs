@@ -1,23 +1,18 @@
-use dashmap::DashMap;
 use sqlx::PgPool;
-use std::sync::Arc;
-use tokio::sync::mpsc::UnboundedSender;
-use uuid::Uuid;
 
+use chat::adapters::conversation_repo::ConversationRepository;
+use chat::adapters::message_repo::MessageRepository;
+use chat::connections::ActiveConnections;
 use users::adapters::user_repository::UserRepository;
-
-/// Message type for WebSocket connections (placeholder for chat feature)
-#[derive(Debug, Clone)]
-pub struct WsMessage {
-    pub text: String,
-}
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: PgPool,
     pub jwt_secret: String,
     pub user_repo: UserRepository,
-    pub active_connections: Arc<DashMap<(Uuid, Uuid), UnboundedSender<WsMessage>>>,
+    pub conversation_repo: ConversationRepository,
+    pub message_repo: MessageRepository,
+    pub active_connections: ActiveConnections,
 }
 
 impl AppState {
@@ -25,27 +20,52 @@ impl AppState {
         let database_url = std::env::var("DATABASE_URL")
             .map_err(|_| "DATABASE_URL must be set".to_string())?;
 
-        let pool = PgPool::connect(&database_url).await
+        let pool = PgPool::connect(&database_url)
+            .await
             .map_err(|e| format!("Failed to connect to database: {}", e))?;
 
         let jwt_secret = std::env::var("JWT_SECRET")
             .map_err(|_| "JWT_SECRET must be set".to_string())?;
 
         let user_repo = UserRepository::new(pool.clone());
+        let conversation_repo = ConversationRepository::new(pool.clone());
+        let message_repo = MessageRepository::new(pool.clone());
+        let active_connections = ActiveConnections::new();
 
         Ok(Self {
             pool,
             jwt_secret,
             user_repo,
-            active_connections: Arc::new(DashMap::new()),
+            conversation_repo,
+            message_repo,
+            active_connections,
         })
     }
 }
 
-/// Extractors using FromRef pattern
+/// FromRef implementations for extracting components from AppState
+
 impl axum::extract::FromRef<AppState> for UserRepository {
     fn from_ref(state: &AppState) -> Self {
         state.user_repo.clone()
+    }
+}
+
+impl axum::extract::FromRef<AppState> for ConversationRepository {
+    fn from_ref(state: &AppState) -> Self {
+        state.conversation_repo.clone()
+    }
+}
+
+impl axum::extract::FromRef<AppState> for MessageRepository {
+    fn from_ref(state: &AppState) -> Self {
+        state.message_repo.clone()
+    }
+}
+
+impl axum::extract::FromRef<AppState> for ActiveConnections {
+    fn from_ref(state: &AppState) -> Self {
+        state.active_connections.clone()
     }
 }
 
