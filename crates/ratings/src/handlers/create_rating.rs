@@ -19,6 +19,28 @@ pub struct RatingCreatedResponse {
     pub rating: RatingDto,
 }
 
+/// Mapea los errores del dominio a errores HTTP.
+fn map_rating_error(e: RatingError) -> AppError {
+    match e {
+        RatingError::AlreadyRated => {
+            AppError::Conflict("Ya has valorado esta transacción".to_string())
+        }
+        RatingError::InvalidScore(s) => AppError::BadRequest(format!(
+            "Puntuación inválida: {}. Debe estar entre 1 y 5",
+            s
+        )),
+        RatingError::ValidationError(msg) => AppError::BadRequest(msg),
+        RatingError::NotFound => AppError::NotFound("Valoración no encontrada".to_string()),
+        RatingError::TransactionNotCompleted => {
+            AppError::BadRequest("La transacción no está completada".to_string())
+        }
+        RatingError::DatabaseError(msg) => {
+            tracing::error!("Database error in create_rating: {}", msg);
+            AppError::Internal("Error interno del servidor".to_string())
+        }
+    }
+}
+
 /// POST /listings/:id/ratings
 ///
 /// Crea una valoración para un anuncio (requiere autenticación).
@@ -30,20 +52,15 @@ pub struct RatingCreatedResponse {
 /// - 401: no autenticado
 /// - 409: ya valoraste este anuncio
 /// - 422: score fuera de rango
+///
+/// Nota: La validación del score (1-5) se delega al Value Object RatingScore
+/// en el usecase, no en este handler (SRP).
 pub async fn create_rating_handler(
     State(repo): State<RatingRepository>,
     auth_user: AuthUser,
     Path(listing_id): Path<Uuid>,
     Json(dto): Json<CreateRatingDto>,
 ) -> Result<Json<RatingCreatedResponse>, AppError> {
-    // Validar score 1-5
-    if dto.score < 1 || dto.score > 5 {
-        return Err(AppError::BadRequest(format!(
-            "La puntuación debe estar entre 1 y 5 (recibido: {})",
-            dto.score
-        )));
-    }
-
     // En este MVP, el rated_id se obtiene del listing.
     // Por simplicidad, usamos un placeholder que en producción se reemplazaría
     // con la lógica real de obtención del vendedor desde el listing.
@@ -57,20 +74,7 @@ pub async fn create_rating_handler(
 
     let result = create_rating_usecase::create_rating_usecase(&repo, request, dto)
         .await
-        .map_err(|e| match e {
-            RatingError::AlreadyRated => {
-                AppError::Conflict("Ya has valorado esta transacción".to_string())
-            }
-            RatingError::InvalidScore(s) => {
-                AppError::BadRequest(format!("Puntuación inválida: {}. Debe estar entre 1 y 5", s))
-            }
-            RatingError::ValidationError(msg) => AppError::BadRequest(msg),
-            RatingError::DatabaseError(msg) => {
-                tracing::error!("Database error in create_rating: {}", msg);
-                AppError::Internal("Error interno del servidor".to_string())
-            }
-            _ => AppError::Internal("Error interno del servidor".to_string()),
-        })?;
+        .map_err(map_rating_error)?;
 
     Ok(Json(RatingCreatedResponse {
         rating: result,

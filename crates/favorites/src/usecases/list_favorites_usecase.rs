@@ -1,11 +1,11 @@
 use uuid::Uuid;
 
-use crate::adapters::favorite_repository::FavoriteRepository;
 use crate::dtos::FavoritesListDto;
 use crate::errors::FavoriteError;
+use crate::ports::FavoritePort;
 
 pub async fn list_favorites_usecase(
-    repo: &FavoriteRepository,
+    repo: &dyn FavoritePort,
     user_id: Uuid,
     page: i64,
     per_page: i64,

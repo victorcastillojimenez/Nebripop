@@ -1,9 +1,9 @@
 use uuid::Uuid;
 
-use crate::adapters::rating_repository::RatingRepository;
 use crate::dtos::{CreateRatingDto, RatingDto};
 use crate::errors::RatingError;
 use crate::models::RatingScore;
+use crate::ports::RatingPort;
 
 pub struct CreateRatingRequest {
     pub listing_id: Uuid,
@@ -12,7 +12,7 @@ pub struct CreateRatingRequest {
 }
 
 pub async fn create_rating_usecase(
-    repo: &RatingRepository,
+    repo: &dyn RatingPort,
     req: CreateRatingRequest,
     dto: CreateRatingDto,
 ) -> Result<RatingDto, RatingError> {

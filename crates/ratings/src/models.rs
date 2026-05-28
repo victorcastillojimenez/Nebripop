@@ -23,7 +23,7 @@ impl RatingScore {
 }
 
 /// Entidad que representa una valoración post-transacción.
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Rating {
     pub id: Uuid,
     pub listing_id: Uuid,
@@ -73,4 +73,71 @@ impl Rating {
 pub struct RatingSummary {
     pub average: f64,
     pub total: i64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rating_score_new_valid() {
+        let score = RatingScore::new(3).unwrap();
+        assert_eq!(score.value(), 3);
+    }
+
+    #[test]
+    fn test_rating_score_new_boundary_low() {
+        let score = RatingScore::new(1).unwrap();
+        assert_eq!(score.value(), 1);
+    }
+
+    #[test]
+    fn test_rating_score_new_boundary_high() {
+        let score = RatingScore::new(5).unwrap();
+        assert_eq!(score.value(), 5);
+    }
+
+    #[test]
+    fn test_rating_score_new_invalid_below() {
+        let err = RatingScore::new(0).unwrap_err();
+        assert!(matches!(err, RatingError::InvalidScore(0)));
+    }
+
+    #[test]
+    fn test_rating_score_new_invalid_above() {
+        let err = RatingScore::new(6).unwrap_err();
+        assert!(matches!(err, RatingError::InvalidScore(6)));
+    }
+
+    #[test]
+    fn test_rating_new_valid() {
+        let rating = Rating::new(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            4,
+            Some("Buen producto".to_string()),
+            Utc::now(),
+        )
+        .unwrap();
+        assert_eq!(rating.score, 4);
+        assert_eq!(rating.comment.as_deref(), Some("Buen producto"));
+    }
+
+    #[test]
+    fn test_rating_new_long_comment() {
+        let long_comment = "a".repeat(501);
+        let err = Rating::new(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            3,
+            Some(long_comment),
+            Utc::now(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, RatingError::ValidationError(_)));
+    }
 }

@@ -1,11 +1,11 @@
 use uuid::Uuid;
 
-use crate::adapters::rating_repository::RatingRepository;
 use crate::dtos::RatingsListDto;
 use crate::errors::RatingError;
+use crate::ports::RatingPort;
 
 pub async fn list_ratings_usecase(
-    repo: &RatingRepository,
+    repo: &dyn RatingPort,
     user_id: Uuid,
     page: i64,
     per_page: i64,

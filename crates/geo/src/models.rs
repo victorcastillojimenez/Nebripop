@@ -26,6 +26,53 @@ impl GeoPoint {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_geo_point_validate_valid() {
+        let point = GeoPoint::new(40.4168, -3.7038);
+        assert!(point.validate().is_ok());
+    }
+
+    #[test]
+    fn test_geo_point_validate_lat_out_of_range() {
+        let point = GeoPoint::new(91.0, 0.0);
+        assert!(point.validate().is_err());
+    }
+
+    #[test]
+    fn test_geo_point_validate_lat_below_range() {
+        let point = GeoPoint::new(-91.0, 0.0);
+        assert!(point.validate().is_err());
+    }
+
+    #[test]
+    fn test_geo_point_validate_lng_out_of_range() {
+        let point = GeoPoint::new(0.0, 181.0);
+        assert!(point.validate().is_err());
+    }
+
+    #[test]
+    fn test_geo_point_validate_lng_below_range() {
+        let point = GeoPoint::new(0.0, -181.0);
+        assert!(point.validate().is_err());
+    }
+
+    #[test]
+    fn test_geo_point_validate_boundary_lat() {
+        assert!(GeoPoint::new(90.0, 0.0).validate().is_ok());
+        assert!(GeoPoint::new(-90.0, 0.0).validate().is_ok());
+    }
+
+    #[test]
+    fn test_geo_point_validate_boundary_lng() {
+        assert!(GeoPoint::new(0.0, 180.0).validate().is_ok());
+        assert!(GeoPoint::new(0.0, -180.0).validate().is_ok());
+    }
+}
+
 /// Resultado de búsqueda geográfica con distancia incluida.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

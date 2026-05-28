@@ -1,10 +1,10 @@
 use uuid::Uuid;
 
-use crate::adapters::favorite_repository::FavoriteRepository;
 use crate::errors::FavoriteError;
+use crate::ports::FavoritePort;
 
 pub async fn remove_favorite_usecase(
-    repo: &FavoriteRepository,
+    repo: &dyn FavoritePort,
     user_id: Uuid,
     listing_id: Uuid,
 ) -> Result<(), FavoriteError> {

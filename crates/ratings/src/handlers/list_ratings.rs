@@ -9,6 +9,16 @@ use crate::usecases::list_ratings_usecase;
 use common::errors::AppError;
 use common::pagination::PageRequest;
 
+fn map_rating_error(e: RatingError) -> AppError {
+    match e {
+        RatingError::DatabaseError(msg) => {
+            tracing::error!("Database error in list_ratings: {}", msg);
+            AppError::Internal("Error interno del servidor".to_string())
+        }
+        _ => AppError::Internal("Error interno del servidor".to_string()),
+    }
+}
+
 /// GET /users/:id/ratings
 ///
 /// Retorna las valoraciones recibidas por un usuario (público).
@@ -27,13 +37,7 @@ pub async fn list_ratings_handler(
 
     let result = list_ratings_usecase::list_ratings_usecase(&repo, user_id, page, per_page)
         .await
-        .map_err(|e| match e {
-            RatingError::DatabaseError(msg) => {
-                tracing::error!("Database error in list_ratings: {}", msg);
-                AppError::Internal("Error interno del servidor".to_string())
-            }
-            _ => AppError::Internal("Error interno del servidor".to_string()),
-        })?;
+        .map_err(map_rating_error)?;
 
     Ok(Json(result))
 }
