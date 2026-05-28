@@ -194,15 +194,23 @@ crates/
 
 ## Flujo de entrega obligatorio
 
-Al terminar la implementación:
+Al terminar la implementación ejecuta estos pasos en orden sin excepción:
 
-1. Crear rama: `git checkout -b feature/[sprint]-[modulo]`
-2. Añadir archivos: `git add .`
-3. Commit con formato:
-   `git commit -m "[nombre-agente] feat([modulo]): descripción"`
-4. Push: `git push origin feature/[sprint]-[modulo]`
-5. Crear PR hacia develop via github-mcp con:
-   - Título: [agente] feat([modulo]): descripción
-   - Descripción: lista de archivos creados y
-     decisiones técnicas tomadas
-   - Assignee: el miembro del equipo responsable
+1. Crear rama desde main:
+   git checkout main
+   git pull origin main
+   git checkout -b feature/[sprint]-[modulo]
+   (ej: feature/s1-auth, feature/s2-listings)
+
+2. Añadir y commitear:
+   git add .
+   git commit -m "[nombre-agente] feat([modulo]): descripción breve"
+
+3. Push:
+   git push origin feature/[sprint]-[modulo]
+
+4. Crear PR hacia main (no develop) via github-mcp:
+   - Título: "[agente] feat([modulo]): descripción"
+   - Base branch: main
+   - Descripción: lista de archivos creados,
+     decisiones técnicas y reglas cumplidas
