@@ -1,9 +1,39 @@
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::errors::ChatError;
 use crate::models::Message;
+use crate::ports::MessagePort;
+
+// ── Internal row type (infrastructure-only, with sqlx::FromRow) ──────────
+
+/// SQL row mapping for messages table
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct MessageRow {
+    pub id: Uuid,
+    pub conversation_id: Uuid,
+    pub sender_id: Uuid,
+    pub content: String,
+    pub is_read: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<MessageRow> for Message {
+    fn from(row: MessageRow) -> Self {
+        Self {
+            id: row.id,
+            conversation_id: row.conversation_id,
+            sender_id: row.sender_id,
+            content: row.content,
+            is_read: row.is_read,
+            created_at: row.created_at,
+        }
+    }
+}
+
+// ── Repository implementation ───────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct MessageRepository {
@@ -14,16 +44,16 @@ impl MessageRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
+}
 
-    /// Create a new message in a conversation
-    /// Validates content length (1-5000 characters)
-    pub async fn create(
+#[async_trait]
+impl MessagePort for MessageRepository {
+    async fn create(
         &self,
         conversation_id: Uuid,
         sender_id: Uuid,
         content: &str,
     ) -> Result<Message, ChatError> {
-        // Validate content
         let trimmed = content.trim();
         if trimmed.is_empty() {
             return Err(ChatError::InvalidMessage(
@@ -36,7 +66,7 @@ impl MessageRepository {
             ));
         }
 
-        let message = sqlx::query_as::<_, Message>(
+        let row = sqlx::query_as::<_, MessageRow>(
             r#"
             INSERT INTO messages (id, conversation_id, sender_id, content, is_read, created_at)
             VALUES (gen_random_uuid(), $1, $2, $3, false, now())
@@ -49,21 +79,19 @@ impl MessageRepository {
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(message)
+        Ok(row.into())
     }
 
-    /// Find messages in a conversation, optionally filtered by creation time
-    /// Ordered by created_at ASC, limited by the given limit (default 50, max 200)
-    pub async fn find_by_conversation_id(
+    async fn find_by_conversation_id(
         &self,
         conversation_id: Uuid,
         since: Option<DateTime<Utc>>,
         limit: i64,
     ) -> Result<Vec<Message>, ChatError> {
-        let limit = limit.min(200).max(1);
+        let limit = limit.clamp(1, 200);
 
-        let messages = if let Some(since) = since {
-            sqlx::query_as::<_, Message>(
+        let rows = if let Some(since) = since {
+            sqlx::query_as::<_, MessageRow>(
                 r#"
                 SELECT id, conversation_id, sender_id, content, is_read, created_at
                 FROM messages
@@ -78,7 +106,7 @@ impl MessageRepository {
             .fetch_all(&self.pool)
             .await?
         } else {
-            sqlx::query_as::<_, Message>(
+            sqlx::query_as::<_, MessageRow>(
                 r#"
                 SELECT id, conversation_id, sender_id, content, is_read, created_at
                 FROM messages
@@ -93,11 +121,10 @@ impl MessageRepository {
             .await?
         };
 
-        Ok(messages)
+        Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    /// Count unread messages for a user in a conversation
-    pub async fn count_unread(
+    async fn count_unread(
         &self,
         conversation_id: Uuid,
         user_id: Uuid,

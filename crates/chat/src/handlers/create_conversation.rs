@@ -15,25 +15,23 @@ use crate::usecases;
 pub async fn handle(
     State(conversation_repo): State<ConversationRepository>,
     State(message_repo): State<MessageRepository>,
-    State(pool): State<sqlx::PgPool>,
     user: ChatUser,
     Json(dto): Json<CreateConversationDto>,
 ) -> Result<(StatusCode, Json<ConversationResponseDto>), AppError> {
     let result = usecases::create_conversation_usecase::execute(
         &conversation_repo,
         &message_repo,
-        &pool,
         user.id,
         dto,
     )
     .await
-    .map_err(|e| map_chat_error(e))?;
+    .map_err(map_conversation_error)?;
 
     Ok((StatusCode::CREATED, Json(result)))
 }
 
-fn map_chat_error(err: ChatError) -> AppError {
-    match err {
+fn map_conversation_error(error: ChatError) -> AppError {
+    match error {
         ChatError::ConversationNotFound(id) => {
             AppError::NotFound(format!("Conversación {} no encontrada", id))
         }
@@ -52,13 +50,13 @@ fn map_chat_error(err: ChatError) -> AppError {
         ChatError::CannotChatWithSelf => {
             AppError::BadRequest("No puedes chatear contigo mismo".to_string())
         }
-        ChatError::InvalidMessage(msg) => AppError::BadRequest(msg),
-        ChatError::Database(db_err) => {
-            tracing::error!("Database error: {:?}", db_err);
+        ChatError::InvalidMessage(message) => AppError::BadRequest(message),
+        ChatError::Database(db_error) => {
+            tracing::error!("Database error: {:?}", db_error);
             AppError::Internal("Error de base de datos".to_string())
         }
-        ChatError::Internal(msg) => {
-            tracing::error!("Internal error: {}", msg);
+        ChatError::Internal(message) => {
+            tracing::error!("Internal error: {}", message);
             AppError::Internal("Error interno del servidor".to_string())
         }
     }

@@ -9,10 +9,11 @@ use common::errors::AppError;
 
 use crate::adapters::conversation_repo::ConversationRepository;
 use crate::adapters::message_repo::MessageRepository;
+use crate::adapters::ws_adapter;
 use crate::connections::ActiveConnections;
-use crate::usecases::ws_lifecycle_usecase;
+use crate::ports::ConversationPort;
 
-/// JWT claims format
+/// JWT claims format for WebSocket authentication
 #[derive(Debug, Serialize, Deserialize)]
 struct WsClaims {
     sub: Uuid,
@@ -27,8 +28,8 @@ pub struct WsQueryParams {
     pub token: String,
 }
 
-/// WS /chat/:id/ws — WebSocket upgrade handler
-/// Validates JWT token BEFORE upgrading the connection
+/// WS /chat/:id/ws — WebSocket upgrade handler.
+/// Validates JWT token BEFORE upgrading the connection.
 pub async fn handle(
     State(conversation_repo): State<ConversationRepository>,
     State(message_repo): State<MessageRepository>,
@@ -55,6 +56,7 @@ pub async fn handle(
     let user_id = claims.claims.sub;
 
     // 2. Verify conversation membership
+    // Uses the concrete ConversationPort implementation to check
     let is_member = conversation_repo
         .is_member(conversation_id, user_id)
         .await
@@ -67,12 +69,15 @@ pub async fn handle(
     }
 
     // 3. Accept the WebSocket upgrade
+    let conv_repo = conversation_repo.clone();
+    let msg_repo = message_repo.clone();
+    let connections = active_connections.clone();
     Ok(ws.on_upgrade(move |socket| {
-        ws_lifecycle_usecase::handle_socket(
+        ws_adapter::handle_socket(
             socket,
-            conversation_repo,
-            message_repo,
-            active_connections,
+            conv_repo,
+            msg_repo,
+            connections,
             user_id,
             conversation_id,
         )

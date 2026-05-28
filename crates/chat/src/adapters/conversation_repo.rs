@@ -1,8 +1,79 @@
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::errors::ChatError;
-use crate::models::{Conversation, ConversationWithDetails};
+use crate::models::Conversation;
+use crate::ports::{ConversationPort, ConversationWithDetails};
+
+// ── Internal row types (infrastructure-only, with sqlx::FromRow) ──────────
+
+/// SQL row mapping for conversations table
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct ConversationRow {
+    pub id: Uuid,
+    pub listing_id: Uuid,
+    pub buyer_id: Uuid,
+    pub seller_id: Uuid,
+    pub last_message: Option<String>,
+    pub last_message_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl From<ConversationRow> for Conversation {
+    fn from(row: ConversationRow) -> Self {
+        Self {
+            id: row.id,
+            listing_id: row.listing_id,
+            buyer_id: row.buyer_id,
+            seller_id: row.seller_id,
+            last_message: row.last_message,
+            last_message_at: row.last_message_at,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
+    }
+}
+
+/// SQL row mapping for the enriched conversation query
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct ConversationDetailsRow {
+    pub id: Uuid,
+    pub listing_id: Uuid,
+    pub listing_title: String,
+    pub listing_image: Option<String>,
+    pub other_user_id: Uuid,
+    pub other_user_name: String,
+    pub other_user_avatar: Option<String>,
+    pub last_message: Option<String>,
+    pub last_message_at: Option<DateTime<Utc>>,
+    pub unread_count: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl From<ConversationDetailsRow> for ConversationWithDetails {
+    fn from(row: ConversationDetailsRow) -> Self {
+        Self {
+            id: row.id,
+            listing_id: row.listing_id,
+            listing_title: row.listing_title,
+            listing_image: row.listing_image,
+            other_user_id: row.other_user_id,
+            other_user_name: row.other_user_name,
+            other_user_avatar: row.other_user_avatar,
+            last_message: row.last_message,
+            last_message_at: row.last_message_at,
+            unread_count: row.unread_count,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
+    }
+}
+
+// ── Repository implementation ───────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct ConversationRepository {
@@ -13,15 +84,17 @@ impl ConversationRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
+}
 
-    /// Create a new conversation
-    pub async fn create(
+#[async_trait]
+impl ConversationPort for ConversationRepository {
+    async fn create(
         &self,
         listing_id: Uuid,
         buyer_id: Uuid,
         seller_id: Uuid,
     ) -> Result<Conversation, ChatError> {
-        let conversation = sqlx::query_as::<_, Conversation>(
+        let row = sqlx::query_as::<_, ConversationRow>(
             r#"
             INSERT INTO conversations (id, listing_id, buyer_id, seller_id, created_at, updated_at)
             VALUES (gen_random_uuid(), $1, $2, $3, now(), now())
@@ -34,12 +107,11 @@ impl ConversationRepository {
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(conversation)
+        Ok(row.into())
     }
 
-    /// Find a conversation by its ID
-    pub async fn find_by_id(&self, id: Uuid) -> Result<Conversation, ChatError> {
-        let conversation = sqlx::query_as::<_, Conversation>(
+    async fn find_by_id(&self, id: Uuid) -> Result<Conversation, ChatError> {
+        let row = sqlx::query_as::<_, ConversationRow>(
             r#"
             SELECT id, listing_id, buyer_id, seller_id, last_message, last_message_at, created_at, updated_at
             FROM conversations
@@ -51,16 +123,15 @@ impl ConversationRepository {
         .await?
         .ok_or(ChatError::ConversationNotFound(id))?;
 
-        Ok(conversation)
+        Ok(row.into())
     }
 
-    /// Check if a conversation already exists for a (listing, buyer) pair
-    pub async fn find_by_listing_and_buyer(
+    async fn find_by_listing_and_buyer(
         &self,
         listing_id: Uuid,
         buyer_id: Uuid,
     ) -> Result<Option<Conversation>, ChatError> {
-        let conversation = sqlx::query_as::<_, Conversation>(
+        let row = sqlx::query_as::<_, ConversationRow>(
             r#"
             SELECT id, listing_id, buyer_id, seller_id, last_message, last_message_at, created_at, updated_at
             FROM conversations
@@ -72,29 +143,10 @@ impl ConversationRepository {
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(conversation)
+        Ok(row.map(|r| r.into()))
     }
 
-    /// Find conversations by user ID (either as buyer or seller), ordered by last activity
-    pub async fn find_by_user_id(&self, user_id: Uuid) -> Result<Vec<Conversation>, ChatError> {
-        let conversations = sqlx::query_as::<_, Conversation>(
-            r#"
-            SELECT id, listing_id, buyer_id, seller_id, last_message, last_message_at, created_at, updated_at
-            FROM conversations
-            WHERE buyer_id = $1 OR seller_id = $1
-            ORDER BY updated_at DESC
-            "#,
-        )
-        .bind(user_id)
-        .fetch_all(&self.pool)
-        .await?;
-
-        Ok(conversations)
-    }
-
-    /// Find conversations paginated with enriched data (user names, listing titles, unread counts)
-    #[allow(clippy::type_complexity)]
-    pub async fn find_by_user_id_paginated(
+    async fn find_by_user_id_paginated(
         &self,
         user_id: Uuid,
         page: i64,
@@ -102,7 +154,6 @@ impl ConversationRepository {
     ) -> Result<(Vec<ConversationWithDetails>, i64), ChatError> {
         let offset = page * per_page;
 
-        // Count total conversations for the user
         let count_row = sqlx::query_scalar::<_, i64>(
             r#"
             SELECT COUNT(*)::bigint
@@ -114,8 +165,7 @@ impl ConversationRepository {
         .fetch_one(&self.pool)
         .await?;
 
-        // Fetch paginated conversations with joined data
-        let conversations = sqlx::query_as::<_, ConversationWithDetails>(
+        let rows = sqlx::query_as::<_, ConversationDetailsRow>(
             r#"
             SELECT
                 c.id,
@@ -148,11 +198,13 @@ impl ConversationRepository {
         .fetch_all(&self.pool)
         .await?;
 
+        let conversations: Vec<ConversationWithDetails> =
+            rows.into_iter().map(|r| r.into()).collect();
+
         Ok((conversations, count_row))
     }
 
-    /// Update the last_message and last_message_at fields on a conversation
-    pub async fn update_last_message(
+    async fn update_last_message(
         &self,
         conversation_id: Uuid,
         content: &str,
@@ -172,9 +224,7 @@ impl ConversationRepository {
         Ok(())
     }
 
-    /// Mark messages as read for a given conversation and user
-    /// Marks all messages from the other user as read
-    pub async fn mark_as_read(
+    async fn mark_as_read(
         &self,
         conversation_id: Uuid,
         user_id: Uuid,
@@ -194,8 +244,7 @@ impl ConversationRepository {
         Ok(())
     }
 
-    /// Check if a user is a member (buyer or seller) of a conversation
-    pub async fn is_member(
+    async fn is_member(
         &self,
         conversation_id: Uuid,
         user_id: Uuid,
@@ -215,20 +264,36 @@ impl ConversationRepository {
         Ok(row.is_some())
     }
 
-    /// Get the other participant in a conversation
-    pub async fn get_other_participant(
+    async fn get_other_participant(
         &self,
         conversation_id: Uuid,
         user_id: Uuid,
     ) -> Result<Uuid, ChatError> {
-        let conv = self.find_by_id(conversation_id).await?;
-        let other_id = if conv.buyer_id == user_id {
-            conv.seller_id
-        } else if conv.seller_id == user_id {
-            conv.buyer_id
+        let conversation = self.find_by_id(conversation_id).await?;
+        let other_id = if conversation.buyer_id == user_id {
+            conversation.seller_id
+        } else if conversation.seller_id == user_id {
+            conversation.buyer_id
         } else {
             return Err(ChatError::NotMember(user_id));
         };
         Ok(other_id)
+    }
+
+    async fn verify_listing_seller(
+        &self,
+        listing_id: Uuid,
+    ) -> Result<Uuid, ChatError> {
+        let seller_id = sqlx::query_scalar::<_, Uuid>(
+            r#"
+            SELECT seller_id FROM listings WHERE id = $1 AND status = 'active'
+            "#,
+        )
+        .bind(listing_id)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(ChatError::ListingNotFound(listing_id))?;
+
+        Ok(seller_id)
     }
 }

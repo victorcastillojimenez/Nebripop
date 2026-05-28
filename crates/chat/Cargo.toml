@@ -16,6 +16,7 @@ tracing = { workspace = true }
 dashmap = { workspace = true }
 futures-util = { workspace = true }
 jsonwebtoken = { workspace = true }
+async-trait = "0.1"
 
 common = { path = "../common" }
 users = { path = "../users" }
