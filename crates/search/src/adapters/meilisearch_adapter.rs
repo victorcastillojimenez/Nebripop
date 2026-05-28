@@ -41,7 +41,7 @@ impl MeiliSearchAdapter {
             .await
             .map_err(|e| SearchError::IndexSetup(format!("Failed to list indexes: {e}")))?;
 
-        if existing.iter().any(|i| i.uid == LISTINGS_INDEX) {
+        if existing.results.iter().any(|i| i.uid == LISTINGS_INDEX) {
             return Ok(self.client.index(LISTINGS_INDEX));
         }
 
@@ -110,11 +110,11 @@ impl MeiliSearchAdapter {
         parts.join(" AND ")
     }
 
-    fn build_sort(sort: Option<&str>) -> Option<Vec<String>> {
+    fn build_sort(sort: Option<&str>) -> Option<Vec<&'static str>> {
         match sort {
-            Some("price_asc") => Some(vec!["price:asc".to_string()]),
-            Some("price_desc") => Some(vec!["price:desc".to_string()]),
-            Some("date_desc") => Some(vec!["created_at:desc".to_string()]),
+            Some("price_asc") => Some(vec!["price:asc"]),
+            Some("price_desc") => Some(vec!["price:desc"]),
+            Some("date_desc") => Some(vec!["created_at:desc"]),
             _ => None,
         }
     }
@@ -133,7 +133,7 @@ impl SearchEngine for MeiliSearchAdapter {
         // Build filter, query, and sort strings with sufficient lifetimes
         let query_owned = filters.q.as_deref().unwrap_or("").to_string();
         let filter_owned = Self::build_filter(filters);
-        let sort_vec: Vec<String> = Self::build_sort(filters.sort.as_deref()).unwrap_or_default();
+        let sort_vec: Vec<&'static str> = Self::build_sort(filters.sort.as_deref()).unwrap_or_default();
 
         // ── Build the MeiliSearch query ──
         let mut search = index.search();
@@ -144,7 +144,7 @@ impl SearchEngine for MeiliSearchAdapter {
         }
 
         if !sort_vec.is_empty() {
-            search.with_sort(sort_vec);
+            search.with_sort(&sort_vec);
         }
 
         search.with_limit(limit);

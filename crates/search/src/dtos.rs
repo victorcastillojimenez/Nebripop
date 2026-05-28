@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 /// Query parameters for the search endpoint.
 /// All fields are optional; defaults are applied in validation.
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchQueryDto {
     /// Full-text search query (optional).
@@ -45,6 +45,23 @@ fn default_page() -> i64 {
 
 fn default_per_page() -> i64 {
     20
+}
+
+impl Default for SearchQueryDto {
+    fn default() -> Self {
+        Self {
+            q: None,
+            category: None,
+            min_price: None,
+            max_price: None,
+            lat: None,
+            lng: None,
+            radius_km: None,
+            sort: None,
+            page: default_page(),
+            per_page: default_per_page(),
+        }
+    }
 }
 
 impl SearchQueryDto {
