@@ -7,7 +7,8 @@ use uuid::Uuid;
 #[serde(rename_all = "camelCase")]
 pub struct SearchQueryDto {
     /// Full-text search query (optional).
-    pub q: Option<String>,
+    #[serde(rename = "q")]
+    pub query: Option<String>,
 
     /// Category filter (optional).
     pub category: Option<String>,
@@ -19,10 +20,12 @@ pub struct SearchQueryDto {
     pub max_price: Option<f64>,
 
     /// Latitude for geo-radius search (optional, must be paired with lng).
-    pub lat: Option<f64>,
+    #[serde(rename = "lat")]
+    pub latitude: Option<f64>,
 
     /// Longitude for geo-radius search (optional, must be paired with lat).
-    pub lng: Option<f64>,
+    #[serde(rename = "lng")]
+    pub longitude: Option<f64>,
 
     /// Radius in km for geo filter (optional, default: 50 if lat/lng provided).
     pub radius_km: Option<f64>,
@@ -50,12 +53,12 @@ fn default_per_page() -> i64 {
 impl Default for SearchQueryDto {
     fn default() -> Self {
         Self {
-            q: None,
+            query: None,
             category: None,
             min_price: None,
             max_price: None,
-            lat: None,
-            lng: None,
+            latitude: None,
+            longitude: None,
             radius_km: None,
             sort: None,
             page: default_page(),
@@ -64,79 +67,89 @@ impl Default for SearchQueryDto {
     }
 }
 
+fn validate_prices(min_price: Option<f64>, max_price: Option<f64>) -> Result<(), String> {
+    if let Some(min) = min_price {
+        if min < 0.0 {
+            return Err("minPrice debe ser mayor o igual a 0".to_string());
+        }
+    }
+    if let Some(max) = max_price {
+        if max < 0.0 {
+            return Err("maxPrice debe ser mayor o igual a 0".to_string());
+        }
+    }
+    if let (Some(min), Some(max)) = (min_price, max_price) {
+        if min > max {
+            return Err("minPrice no puede ser mayor que maxPrice".to_string());
+        }
+    }
+    Ok(())
+}
+
+fn validate_lat_lng_parity(lat: Option<f64>, lng: Option<f64>) -> Result<(), String> {
+    if lat.is_some() && lng.is_none() {
+        return Err("Si se proporciona lat, también se debe proporcionar lng".to_string());
+    }
+    if lng.is_some() && lat.is_none() {
+        return Err("Si se proporciona lng, también se debe proporcionar lat".to_string());
+    }
+    Ok(())
+}
+
+fn validate_coordinates(lat: Option<f64>, lng: Option<f64>) -> Result<(), String> {
+    if let Some(lat_val) = lat {
+        if !(-90.0..=90.0).contains(&lat_val) {
+            return Err("lat debe estar entre -90 y 90".to_string());
+        }
+    }
+    if let Some(lng_val) = lng {
+        if !(-180.0..=180.0).contains(&lng_val) {
+            return Err("lng debe estar entre -180 y 180".to_string());
+        }
+    }
+    Ok(())
+}
+
+fn validate_radius(radius_km: Option<f64>) -> Result<(), String> {
+    if let Some(radius) = radius_km {
+        if radius <= 0.0 {
+            return Err("radiusKm debe ser mayor que 0".to_string());
+        }
+        if radius > 500.0 {
+            return Err("radiusKm no puede exceder 500 km".to_string());
+        }
+    }
+    Ok(())
+}
+
+fn validate_sort(sort: Option<&str>) -> Result<(), String> {
+    if let Some(s) = sort {
+        match s {
+            "price_asc" | "price_desc" | "date_desc" => {}
+            _ => {
+                return Err(format!(
+                    "sort inválido: '{}'. Valores: price_asc, price_desc, date_desc",
+                    s
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 impl SearchQueryDto {
     /// Validate the query parameters, returning a normalized SearchQueryDto
     /// or an error message if validation fails.
     pub fn validate(self) -> Result<Self, String> {
-        // Validate min_price and max_price
-        if let Some(min) = self.min_price {
-            if min < 0.0 {
-                return Err("minPrice debe ser mayor o igual a 0".to_string());
-            }
-        }
-        if let Some(max) = self.max_price {
-            if max < 0.0 {
-                return Err("maxPrice debe ser mayor o igual a 0".to_string());
-            }
-        }
-        if let (Some(min), Some(max)) = (self.min_price, self.max_price) {
-            if min > max {
-                return Err("minPrice no puede ser mayor que maxPrice".to_string());
-            }
-        }
-
-        // lat and lng must be provided together
-        if self.lat.is_some() && self.lng.is_none() {
-            return Err("Si se proporciona lat, también se debe proporcionar lng".to_string());
-        }
-        if self.lng.is_some() && self.lat.is_none() {
-            return Err("Si se proporciona lng, también se debe proporcionar lat".to_string());
-        }
-
-        // Validate lat range
-        if let Some(lat) = self.lat {
-            if !(-90.0..=90.0).contains(&lat) {
-                return Err("lat debe estar entre -90 y 90".to_string());
-            }
-        }
-
-        // Validate lng range
-        if let Some(lng) = self.lng {
-            if !(-180.0..=180.0).contains(&lng) {
-                return Err("lng debe estar entre -180 y 180".to_string());
-            }
-        }
-
-        // Validate radius
-        if let Some(radius) = self.radius_km {
-            if radius <= 0.0 {
-                return Err("radiusKm debe ser mayor que 0".to_string());
-            }
-            if radius > 500.0 {
-                return Err("radiusKm no puede exceder 500 km".to_string());
-            }
-        }
-
-        // Validate sort
-        if let Some(ref sort) = self.sort {
-            match sort.as_str() {
-                "price_asc" | "price_desc" | "date_desc" => {}
-                _ => {
-                    return Err(format!(
-                        "sort inválido: '{}'. Valores: price_asc, price_desc, date_desc",
-                        sort
-                    ));
-                }
-            }
-        }
-
-        // Clamp pagination
-        let page = self.page.max(0);
-        let per_page = self.per_page.min(100).max(1);
+        validate_prices(self.min_price, self.max_price)?;
+        validate_lat_lng_parity(self.latitude, self.longitude)?;
+        validate_coordinates(self.latitude, self.longitude)?;
+        validate_radius(self.radius_km)?;
+        validate_sort(self.sort.as_deref())?;
 
         Ok(Self {
-            page,
-            per_page,
+            page: self.page.max(0),
+            per_page: self.per_page.min(100).max(1),
             ..self
         })
     }
@@ -195,11 +208,7 @@ impl SearchResponseDto {
         per_page: i64,
         engine: &str,
     ) -> Self {
-        let total_pages = if total == 0 {
-            0
-        } else {
-            ((total as f64) / (per_page as f64)).ceil() as i64
-        };
+        let total_pages = compute_total_pages(total, per_page);
 
         Self {
             items,
@@ -209,5 +218,13 @@ impl SearchResponseDto {
             total_pages,
             engine: engine.to_string(),
         }
+    }
+}
+
+fn compute_total_pages(total: i64, per_page: i64) -> i64 {
+    if total == 0 {
+        0
+    } else {
+        ((total as f64) / (per_page as f64)).ceil() as i64
     }
 }

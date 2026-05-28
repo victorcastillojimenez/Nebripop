@@ -61,181 +61,122 @@ impl ParamTracker {
     }
 }
 
+fn build_where_clause(
+    filters: &SearchFilters,
+    has_geo: bool,
+    pt: &mut ParamTracker,
+) -> (String, Option<u32>, Option<u32>, Option<u32>) {
+    let mut conditions = vec!["l.status = 'active'".to_string()];
+    if filters.query.is_some() {
+        let idx = pt.reserve();
+        conditions.push(format!("(l.title ILIKE ${idx} OR l.description ILIKE ${idx})"));
+    }
+    if filters.category.is_some() { conditions.push(format!("l.category = ${}", pt.reserve())); }
+    if filters.min_price.is_some() { conditions.push(format!("l.price >= ${}::numeric", pt.reserve())); }
+    if filters.max_price.is_some() { conditions.push(format!("l.price <= ${}::numeric", pt.reserve())); }
+    let (r_idx, la_idx, lo_idx) = if has_geo {
+        let r = pt.reserve();
+        let (la, lo) = (pt.reserve(), pt.reserve());
+        conditions.push(format!("ST_DWithin(l.location, ST_SetSRID(ST_MakePoint(${lo}, ${la}), 4326), ${r})"));
+        (Some(r), Some(la), Some(lo))
+    } else { (None, None, None) };
+    (conditions.join(" AND "), r_idx, la_idx, lo_idx)
+}
+
+fn build_select_sql(where_clause: &str, has_geo: bool, limit_idx: u32, offset_idx: u32, la_idx: Option<u32>, lo_idx: Option<u32>) -> String {
+    let order = if has_geo { "ORDER BY distance_km ASC" } else { "ORDER BY l.created_at DESC" };
+    let distance = if let (Some(la), Some(lo)) = (la_idx, lo_idx) {
+        format!("ST_Distance(l.location, ST_SetSRID(ST_MakePoint(${lo}, ${la}), 4326)::geography) / 1000.0 AS distance_km")
+    } else {
+        "NULL::float8 AS distance_km".to_string()
+    };
+    format!(
+        r#"SELECT l.id, l.title, l.price::float8 AS "price", l.currency, l.category,
+                  l.condition, l.city, l.created_at,
+                  (SELECT li.image_url FROM listing_images li WHERE li.listing_id = l.id ORDER BY li.position ASC LIMIT 1) AS "image_url",
+                  {distance}
+           FROM listings l WHERE {where_clause} {order} LIMIT ${limit_idx} OFFSET ${offset_idx}"#
+    )
+}
+
+async fn execute_count(pool: &PgPool, sql: &str, filters: &SearchFilters, has_geo: bool) -> Result<i64, SearchError> {
+    let mut query = sqlx::query_as::<_, (i64,)>(sql);
+    if let Some(ref q) = filters.query { query = query.bind(format!("%{}%", q)); }
+    if let Some(ref cat) = filters.category { query = query.bind(cat); }
+    if let Some(min) = filters.min_price { query = query.bind(min); }
+    if let Some(max) = filters.max_price { query = query.bind(max); }
+    if has_geo {
+        if let (Some(lat), Some(lng)) = (filters.latitude, filters.longitude) {
+            let radius_m = filters.radius_km.unwrap_or(50.0).max(1.0) * 1000.0;
+            query = query.bind(radius_m).bind(lat).bind(lng);
+        }
+    }
+    let res = query.fetch_one(pool).await.map_err(|e| {
+        tracing::error!("SQL count failed: {e}");
+        SearchError::DatabaseError(format!("Error al contar resultados: {e}"))
+    })?;
+    Ok(res.0)
+}
+
+async fn execute_select(
+    pool: &PgPool,
+    sql: &str,
+    filters: &SearchFilters,
+    has_geo: bool,
+) -> Result<Vec<SqlResultRow>, SearchError> {
+    let mut query = sqlx::query_as::<_, SqlResultRow>(sql);
+    if let Some(ref q) = filters.query { query = query.bind(format!("%{}%", q)); }
+    if let Some(ref cat) = filters.category { query = query.bind(cat); }
+    if let Some(min) = filters.min_price { query = query.bind(min); }
+    if let Some(max) = filters.max_price { query = query.bind(max); }
+    if has_geo {
+        if let (Some(lat), Some(lng)) = (filters.latitude, filters.longitude) {
+            let radius_m = filters.radius_km.unwrap_or(50.0).max(1.0) * 1000.0;
+            query = query.bind(radius_m).bind(lat).bind(lng);
+        }
+    }
+    query = query.bind(filters.limit()).bind(filters.offset());
+    query.fetch_all(pool).await.map_err(|e| {
+        tracing::error!("SQL select failed: {e}");
+        SearchError::DatabaseError(format!("Error al buscar anuncios: {e}"))
+    })
+}
+
+fn map_row_to_result(row: SqlResultRow) -> SearchResult {
+    SearchResult {
+        id: row.id,
+        title: row.title,
+        price: row.price,
+        currency: row.currency,
+        category: row.category,
+        condition: row.condition,
+        city: row.city,
+        image_url: row.image_url,
+        distance_km: row.distance_km,
+        created_at: row.created_at.timestamp(),
+    }
+}
+
 #[async_trait]
 impl SearchEngine for SqlFallbackAdapter {
     async fn search(
         &self,
         filters: &SearchFilters,
     ) -> Result<(Vec<SearchResult>, i64), SearchError> {
-        let per_page = filters.limit();
-        let offset = filters.offset();
-        let has_geo = filters.lat.is_some() && filters.lng.is_some();
-
-        // ── Reserve parameter indices ──
-        // Bind order: q, category, min_price, max_price, radius_m, lat, lng, limit, offset
+        let has_geo = filters.latitude.is_some() && filters.longitude.is_some();
         let mut pt = ParamTracker::new();
-
-        let q_idx = if filters.q.is_some() { Some(pt.reserve()) } else { None };
-        let cat_idx = if filters.category.is_some() { Some(pt.reserve()) } else { None };
-        let min_p_idx = if filters.min_price.is_some() { Some(pt.reserve()) } else { None };
-        let max_p_idx = if filters.max_price.is_some() { Some(pt.reserve()) } else { None };
-
-        let (radius_idx, lat_idx, lng_idx) = if has_geo {
-            (
-                Some(pt.reserve()),
-                Some(pt.reserve()),
-                Some(pt.reserve()),
-            )
-        } else {
-            (None, None, None)
-        };
+        let (where_clause, _, la_idx, lo_idx) = build_where_clause(filters, has_geo, &mut pt);
 
         let limit_idx = pt.reserve();
         let offset_idx = pt.reserve();
+        let select_sql = build_select_sql(&where_clause, has_geo, limit_idx, offset_idx, la_idx, lo_idx);
+        let count_sql = format!("SELECT COUNT(*)::int8 FROM listings l WHERE {where_clause}");
 
-        // ── Build WHERE conditions ──
-        let mut conditions: Vec<String> = vec!["l.status = 'active'".to_string()];
+        let total = execute_count(&self.pool, &count_sql, filters, has_geo).await?;
+        let rows = execute_select(&self.pool, &select_sql, filters, has_geo).await?;
+        let items = rows.into_iter().map(map_row_to_result).collect();
 
-        if let Some(idx) = q_idx {
-            conditions.push(format!(
-                "(l.title ILIKE ${idx} OR l.description ILIKE ${idx})",
-                idx = idx
-            ));
-        }
-        if let Some(idx) = cat_idx {
-            conditions.push(format!("l.category = ${idx}", idx = idx));
-        }
-        if let Some(idx) = min_p_idx {
-            conditions.push(format!("l.price >= ${idx}::numeric", idx = idx));
-        }
-        if let Some(idx) = max_p_idx {
-            conditions.push(format!("l.price <= ${idx}::numeric", idx = idx));
-        }
-        if let (Some(r_idx), Some(la_idx), Some(lo_idx)) = (radius_idx, lat_idx, lng_idx) {
-            conditions.push(format!(
-                "ST_DWithin(l.location, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326), ${radius})",
-                lng = lo_idx,
-                lat = la_idx,
-                radius = r_idx,
-            ));
-        }
-
-        let where_clause = conditions.join(" AND ");
-
-        // ── ORDER BY ──
-        let order_clause = if has_geo {
-            "ORDER BY distance_km ASC".to_string()
-        } else {
-            "ORDER BY l.created_at DESC".to_string()
-        };
-
-        // ── Distance expression for SELECT ──
-        let distance_expr = if let (Some(la_idx), Some(lo_idx)) = (lat_idx, lng_idx) {
-            format!(
-                "ST_Distance(l.location, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography) / 1000.0 AS distance_km",
-                lng = lo_idx,
-                lat = la_idx,
-            )
-        } else {
-            "NULL::float8 AS distance_km".to_string()
-        };
-
-        // ── Build SELECT query ──
-        let select_sql = format!(
-            r#"SELECT l.id, l.title, l.price::float8 AS "price", l.currency, l.category,
-                      l.condition, l.city, l.created_at,
-                      (SELECT li.image_url FROM listing_images li
-                       WHERE li.listing_id = l.id
-                       ORDER BY li.position ASC LIMIT 1) AS "image_url",
-                      {distance}
-               FROM listings l
-               WHERE {where}
-               {order}
-               LIMIT ${limit} OFFSET ${offset}"#,
-            distance = distance_expr,
-            where = where_clause,
-            order = order_clause,
-            limit = limit_idx,
-            offset = offset_idx,
-        );
-
-        // ── Build COUNT query (same WHERE, no geo columns needed) ──
-        let count_sql = format!(
-            "SELECT COUNT(*)::int8 FROM listings l WHERE {where}",
-            where = where_clause,
-        );
-
-        // ── Execute COUNT ──
-        let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql);
-        if let Some(ref q) = filters.q {
-            count_query = count_query.bind(format!("%{}%", q));
-        }
-        if let Some(ref cat) = filters.category {
-            count_query = count_query.bind(cat);
-        }
-        if let Some(min) = filters.min_price {
-            count_query = count_query.bind(min);
-        }
-        if let Some(max) = filters.max_price {
-            count_query = count_query.bind(max);
-        }
-        if let (Some(_), Some(lat), Some(lng)) = (radius_idx, filters.lat, filters.lng) {
-            let radius_m = filters.radius_km.unwrap_or(50.0).max(1.0) * 1000.0;
-            count_query = count_query.bind(radius_m);
-            count_query = count_query.bind(lat);
-            count_query = count_query.bind(lng);
-        }
-
-        let total = count_query.fetch_one(&self.pool).await.map_err(|e| {
-            tracing::error!("SQL fallback count query failed: {}", e);
-            SearchError::DatabaseError(format!("Error al contar resultados: {e}"))
-        })?;
-
-        // ── Execute SELECT ──
-        let mut select_query = sqlx::query_as::<_, SqlResultRow>(&select_sql);
-        if let Some(ref q) = filters.q {
-            select_query = select_query.bind(format!("%{}%", q));
-        }
-        if let Some(ref cat) = filters.category {
-            select_query = select_query.bind(cat);
-        }
-        if let Some(min) = filters.min_price {
-            select_query = select_query.bind(min);
-        }
-        if let Some(max) = filters.max_price {
-            select_query = select_query.bind(max);
-        }
-        if let (Some(_), Some(lat), Some(lng)) = (radius_idx, filters.lat, filters.lng) {
-            let radius_m = filters.radius_km.unwrap_or(50.0).max(1.0) * 1000.0;
-            select_query = select_query.bind(radius_m);
-            select_query = select_query.bind(lat);
-            select_query = select_query.bind(lng);
-        }
-        select_query = select_query.bind(per_page).bind(offset);
-
-        let rows: Vec<SqlResultRow> = select_query.fetch_all(&self.pool).await.map_err(|e| {
-            tracing::error!("SQL fallback select query failed: {}", e);
-            SearchError::DatabaseError(format!("Error al buscar anuncios: {e}"))
-        })?;
-
-        // ── Map rows to SearchResult ──
-        let items: Vec<SearchResult> = rows
-            .into_iter()
-            .map(|row| SearchResult {
-                id: row.id,
-                title: row.title,
-                price: row.price,
-                currency: row.currency,
-                category: row.category,
-                condition: row.condition,
-                city: row.city,
-                image_url: row.image_url,
-                distance_km: row.distance_km,
-                created_at: row.created_at.timestamp(),
-            })
-            .collect();
-
-        Ok((items, total.0))
+        Ok((items, total))
     }
 
     /// SQL fallback does NOT support index operations (read-only).

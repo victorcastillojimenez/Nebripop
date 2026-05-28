@@ -20,19 +20,19 @@ fn test_search_query_dto_to_filters_defaults() {
 
     assert_eq!(filters.page, 0);
     assert_eq!(filters.per_page, 20);
-    assert!(filters.q.is_none());
+    assert!(filters.query.is_none());
     assert!(filters.category.is_none());
 }
 
 #[test]
 fn test_search_query_dto_to_filters_custom_values() {
     let dto = SearchQueryDto {
-        q: Some("bicicleta".to_string()),
+        query: Some("bicicleta".to_string()),
         category: Some("deportes".to_string()),
         min_price: Some(10.0),
         max_price: Some(100.0),
-        lat: Some(41.3874),
-        lng: Some(2.1686),
+        latitude: Some(41.3874),
+        longitude: Some(2.1686),
         radius_km: Some(25.0),
         sort: Some("price_asc".to_string()),
         page: 1,
@@ -40,12 +40,12 @@ fn test_search_query_dto_to_filters_custom_values() {
     };
     let filters = SearchFilters::from(dto);
 
-    assert_eq!(filters.q.as_deref(), Some("bicicleta"));
+    assert_eq!(filters.query.as_deref(), Some("bicicleta"));
     assert_eq!(filters.category.as_deref(), Some("deportes"));
     assert_eq!(filters.min_price, Some(10.0));
     assert_eq!(filters.max_price, Some(100.0));
-    assert_eq!(filters.lat, Some(41.3874));
-    assert_eq!(filters.lng, Some(2.1686));
+    assert_eq!(filters.latitude, Some(41.3874));
+    assert_eq!(filters.longitude, Some(2.1686));
     assert_eq!(filters.radius_km, Some(25.0));
     assert_eq!(filters.sort.as_deref(), Some("price_asc"));
     assert_eq!(filters.page, 1);
@@ -135,8 +135,8 @@ fn test_search_query_dto_validate_min_price_greater_than_max() {
 #[test]
 fn test_search_query_dto_validate_lat_without_lng() {
     let dto = SearchQueryDto {
-        lat: Some(41.3874),
-        lng: None,
+        latitude: Some(41.3874),
+        longitude: None,
         ..SearchQueryDto::default()
     };
     let result = dto.validate();
@@ -147,8 +147,8 @@ fn test_search_query_dto_validate_lat_without_lng() {
 #[test]
 fn test_search_query_dto_validate_lng_without_lat() {
     let dto = SearchQueryDto {
-        lat: None,
-        lng: Some(2.1686),
+        latitude: None,
+        longitude: Some(2.1686),
         ..SearchQueryDto::default()
     };
     let result = dto.validate();
@@ -159,8 +159,8 @@ fn test_search_query_dto_validate_lng_without_lat() {
 #[test]
 fn test_search_query_dto_validate_lat_range() {
     let dto = SearchQueryDto {
-        lat: Some(100.0),
-        lng: Some(2.0),
+        latitude: Some(100.0),
+        longitude: Some(2.0),
         ..SearchQueryDto::default()
     };
     let result = dto.validate();
@@ -170,8 +170,8 @@ fn test_search_query_dto_validate_lat_range() {
 #[test]
 fn test_search_query_dto_validate_lng_range() {
     let dto = SearchQueryDto {
-        lat: Some(41.0),
-        lng: Some(200.0),
+        latitude: Some(41.0),
+        longitude: Some(200.0),
         ..SearchQueryDto::default()
     };
     let result = dto.validate();
@@ -181,8 +181,8 @@ fn test_search_query_dto_validate_lng_range() {
 #[test]
 fn test_search_query_dto_validate_radius_too_large() {
     let dto = SearchQueryDto {
-        lat: Some(41.0),
-        lng: Some(2.0),
+        latitude: Some(41.0),
+        longitude: Some(2.0),
         radius_km: Some(1000.0),
         ..SearchQueryDto::default()
     };

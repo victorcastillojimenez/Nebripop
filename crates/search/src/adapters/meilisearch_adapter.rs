@@ -34,18 +34,23 @@ impl MeiliSearchAdapter {
 
     /// Get the existing index or create it if it does not exist (idempotent).
     async fn get_or_create_index(&self) -> Result<Index, SearchError> {
-        // List existing indexes to check if ours already exists
+        if self.index_exists().await? {
+            return Ok(self.client.index(LISTINGS_INDEX));
+        }
+        self.create_listings_index().await?;
+        Ok(self.client.index(LISTINGS_INDEX))
+    }
+
+    async fn index_exists(&self) -> Result<bool, SearchError> {
         let existing = self
             .client
             .list_all_indexes()
             .await
             .map_err(|e| SearchError::IndexSetup(format!("Failed to list indexes: {e}")))?;
+        Ok(existing.results.iter().any(|i| i.uid == LISTINGS_INDEX))
+    }
 
-        if existing.results.iter().any(|i| i.uid == LISTINGS_INDEX) {
-            return Ok(self.client.index(LISTINGS_INDEX));
-        }
-
-        // Index does not exist — create it
+    async fn create_listings_index(&self) -> Result<(), SearchError> {
         let task = self
             .client
             .create_index(LISTINGS_INDEX, Some("id"))
@@ -60,8 +65,7 @@ impl MeiliSearchAdapter {
             )
             .await
             .map_err(|e| SearchError::IndexSetup(format!("Failed waiting for index creation: {e}")))?;
-
-        Ok(self.client.index(LISTINGS_INDEX))
+        Ok(())
     }
 
     /// Ensure the index exists with the correct settings (idempotent).
@@ -86,23 +90,18 @@ impl MeiliSearchAdapter {
     }
 
     fn build_filter(filters: &SearchFilters) -> String {
-        let mut parts: Vec<String> = Vec::new();
-
-        parts.push("status = 'active'".to_string());
+        let mut parts = vec!["status = 'active'".to_string()];
 
         if let Some(ref cat) = filters.category {
-            let escaped = cat.replace('\'', "\\'");
-            parts.push(format!("category = '{}'", escaped));
+            parts.push(format!("category = '{}'", cat.replace('\'', "\\'")));
         }
-
         if let Some(min) = filters.min_price {
             parts.push(format!("price >= {min}"));
         }
         if let Some(max) = filters.max_price {
             parts.push(format!("price <= {max}"));
         }
-
-        if let (Some(lat), Some(lng)) = (filters.lat, filters.lng) {
+        if let (Some(lat), Some(lng)) = (filters.latitude, filters.longitude) {
             let radius_m = filters.radius_km.unwrap_or(50.0).max(1.0) * 1000.0;
             parts.push(format!("_geoRadius({lat}, {lng}, {radius_m})"));
         }
@@ -120,6 +119,26 @@ impl MeiliSearchAdapter {
     }
 }
 
+fn map_hit_to_result(hit: &meilisearch_sdk::search::SearchResult<Value>) -> Option<SearchResult> {
+    let doc = &hit.result;
+    let distance_km = hit.formatted_result.as_ref()
+        .and_then(|f| f.get("_geo")?.get("distance")?.as_f64())
+        .map(|d| d / 1000.0);
+
+    Some(SearchResult {
+        id: Uuid::parse_str(doc.get("id")?.as_str()?).ok()?,
+        title: doc.get("title")?.as_str()?.to_string(),
+        price: doc.get("price")?.as_f64()?,
+        currency: doc.get("currency").and_then(|v| v.as_str()).unwrap_or("eur").to_string(),
+        category: doc.get("category")?.as_str()?.to_string(),
+        condition: doc.get("condition")?.as_str()?.to_string(),
+        city: doc.get("city")?.as_str()?.to_string(),
+        image_url: doc.get("image_url").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        distance_km,
+        created_at: doc.get("created_at")?.as_i64()?,
+    })
+}
+
 #[async_trait]
 impl SearchEngine for MeiliSearchAdapter {
     async fn search(
@@ -127,81 +146,22 @@ impl SearchEngine for MeiliSearchAdapter {
         filters: &SearchFilters,
     ) -> Result<(Vec<SearchResult>, i64), SearchError> {
         let index = self.client.index(LISTINGS_INDEX);
-        let limit = filters.limit() as usize;
-        let offset = filters.offset() as usize;
-
-        // Build filter, query, and sort strings with sufficient lifetimes
-        let query_owned = filters.q.as_deref().unwrap_or("").to_string();
+        let query_owned = filters.query.as_deref().unwrap_or("").to_string();
         let filter_owned = Self::build_filter(filters);
-        let sort_vec: Vec<&'static str> = Self::build_sort(filters.sort.as_deref()).unwrap_or_default();
+        let sort_vec = Self::build_sort(filters.sort.as_deref()).unwrap_or_default();
 
-        // ── Build the MeiliSearch query ──
         let mut search = index.search();
         search.with_query(&query_owned);
+        if !filter_owned.is_empty() { search.with_filter(&filter_owned); }
+        if !sort_vec.is_empty() { search.with_sort(&sort_vec); }
+        search.with_limit(filters.limit() as usize);
+        search.with_offset(filters.offset() as usize);
 
-        if !filter_owned.is_empty() {
-            search.with_filter(&filter_owned);
-        }
+        let results = search.execute().await
+            .map_err(|e| SearchError::MeiliSearchError(format!("Search failed: {e}")))?;
 
-        if !sort_vec.is_empty() {
-            search.with_sort(&sort_vec);
-        }
-
-        search.with_limit(limit);
-        search.with_offset(offset);
-
-        let results: SearchResults<Value> = search
-            .execute()
-            .await
-            .map_err(|e| SearchError::MeiliSearchError(format!("Search query failed: {e}")))?;
-
-        let items: Vec<SearchResult> = results
-            .hits
-            .iter()
-            .filter_map(|hit| {
-                let doc = &hit.result;
-                let id = Uuid::parse_str(doc.get("id")?.as_str()?).ok()?;
-                let title = doc.get("title")?.as_str()?.to_string();
-                let price = doc.get("price")?.as_f64()?;
-                let currency = doc
-                    .get("currency")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("eur")
-                    .to_string();
-                let category = doc.get("category")?.as_str()?.to_string();
-                let condition = doc.get("condition")?.as_str()?.to_string();
-                let city = doc.get("city")?.as_str()?.to_string();
-                let image_url = doc
-                    .get("image_url")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-                let created_at = doc.get("created_at")?.as_i64()?;
-
-                let distance_km = hit
-                    .formatted_result
-                    .as_ref()
-                    .and_then(|f| f.get("_geo"))
-                    .and_then(|geo| geo.get("distance"))
-                    .and_then(|d| d.as_f64())
-                    .map(|d| d / 1000.0);
-
-                Some(SearchResult {
-                    id,
-                    title,
-                    price,
-                    currency,
-                    category,
-                    condition,
-                    city,
-                    image_url,
-                    distance_km,
-                    created_at,
-                })
-            })
-            .collect();
-
+        let items: Vec<SearchResult> = results.hits.iter().filter_map(map_hit_to_result).collect();
         let total = results.estimated_total_hits.unwrap_or(items.len()) as i64;
-
         Ok((items, total))
     }
 

@@ -20,30 +20,38 @@ pub async fn execute(
 ) -> Result<(SearchResponseDto, &'static str), SearchError> {
     let filters = SearchFilters::from(query);
 
-    // Try MeiliSearch first
-    if let Some(engine) = engine {
-        match engine.search(&filters).await {
-            Ok((results, total)) => {
-                let dto = build_response(results, total, &filters, "meilisearch");
-                return Ok((dto, "meilisearch"));
-            }
-            Err(e) => {
-                tracing::warn!(
-                    error = %e,
-                    "MeiliSearch search failed, falling back to SQL ILIKE"
-                );
-            }
+    if let Some(engine_instance) = engine {
+        if let Some(res) = try_meilisearch(engine_instance, &filters).await {
+            return Ok(res);
         }
     } else {
         tracing::debug!("MeiliSearch not configured, using SQL ILIKE fallback");
     }
 
-    // Fallback to SQL ILIKE
     let fallback = SqlFallbackAdapter::new(pool.clone());
     let (results, total) = fallback.search(&filters).await?;
     let dto = build_response(results, total, &filters, "sql_fallback");
 
     Ok((dto, "sql_fallback"))
+}
+
+async fn try_meilisearch(
+    engine: &dyn SearchEngine,
+    filters: &SearchFilters,
+) -> Option<(SearchResponseDto, &'static str)> {
+    match engine.search(filters).await {
+        Ok((results, total)) => {
+            let dto = build_response(results, total, filters, "meilisearch");
+            Some((dto, "meilisearch"))
+        }
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                "MeiliSearch search failed, falling back to SQL ILIKE"
+            );
+            None
+        }
+    }
 }
 
 /// Build a `SearchResponseDto` from raw results.
@@ -53,24 +61,6 @@ fn build_response(
     filters: &SearchFilters,
     engine: &str,
 ) -> SearchResponseDto {
-    let items: Vec<SearchResultDto> = results
-        .into_iter()
-        .map(|r| SearchResultDto {
-            id: r.id,
-            title: r.title,
-            price: r.price,
-            currency: r.currency,
-            category: r.category,
-            condition: r.condition,
-            city: r.city,
-            image_url: r.image_url,
-            distance_km: r.distance_km,
-            created_at: r.created_at,
-        })
-        .collect();
-
-    let page = filters.page;
-    let per_page = filters.limit();
-
-    SearchResponseDto::new(items, total, page, per_page, engine)
+    let items = results.into_iter().map(SearchResultDto::from).collect();
+    SearchResponseDto::new(items, total, filters.page, filters.limit(), engine)
 }

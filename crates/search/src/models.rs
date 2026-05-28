@@ -31,7 +31,7 @@ pub struct SearchResult {
 #[derive(Debug, Clone, Default)]
 pub struct SearchFilters {
     /// Full-text search query string.
-    pub q: Option<String>,
+    pub query: Option<String>,
 
     /// Category filter.
     pub category: Option<String>,
@@ -43,10 +43,10 @@ pub struct SearchFilters {
     pub max_price: Option<f64>,
 
     /// Latitude for geo-radius filter.
-    pub lat: Option<f64>,
+    pub latitude: Option<f64>,
 
     /// Longitude for geo-radius filter.
-    pub lng: Option<f64>,
+    pub longitude: Option<f64>,
 
     /// Radius in km for geo filter (default: 50).
     pub radius_km: Option<f64>,
@@ -65,12 +65,12 @@ impl SearchFilters {
     /// Create a new SearchFilters with default pagination.
     pub fn new() -> Self {
         Self {
-            q: None,
+            query: None,
             category: None,
             min_price: None,
             max_price: None,
-            lat: None,
-            lng: None,
+            latitude: None,
+            longitude: None,
             radius_km: None,
             sort: None,
             page: 0,
@@ -92,12 +92,12 @@ impl SearchFilters {
 impl From<crate::dtos::SearchQueryDto> for SearchFilters {
     fn from(dto: crate::dtos::SearchQueryDto) -> Self {
         Self {
-            q: dto.q,
+            query: dto.query,
             category: dto.category,
             min_price: dto.min_price,
             max_price: dto.max_price,
-            lat: dto.lat,
-            lng: dto.lng,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
             radius_km: dto.radius_km,
             sort: dto.sort,
             page: dto.page,
