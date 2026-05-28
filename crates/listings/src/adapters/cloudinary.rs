@@ -160,7 +160,7 @@ impl ImageStorageImpl {
 
         // signature
         let sig_string = format!("public_id={public_id}&timestamp={timestamp}{api_secret}");
-        let signature = format!("{:x}", md5_hash(&sig_string));
+        let signature = md5_hash(&sig_string);
         body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
         body.extend_from_slice(b"Content-Disposition: form-data; name=\"signature\"\r\n\r\n");
         body.extend_from_slice(signature.as_bytes());
@@ -229,7 +229,7 @@ impl ImageStorageImpl {
             .as_secs();
 
         let sig_string = format!("public_id={public_id}&timestamp={timestamp}{api_secret}");
-        let signature = format!("{:x}", md5_hash(&sig_string));
+        let signature = md5_hash(&sig_string);
 
         let client = reqwest::Client::new();
         let params = [
@@ -278,7 +278,7 @@ impl ImageStorageImpl {
 
     fn local_delete(&self, url: &str) -> Result<(), ListingError> {
         // Remove the serve path prefix to get the relative file path
-        if let Some(relative) = url.strip_prefix(self.local_serve_path) {
+        if let Some(relative) = url.strip_prefix(&self.local_serve_path) {
             let full_path = format!("{}{}", self.local_upload_dir, relative);
             let _ = std::fs::remove_file(&full_path);
         }
@@ -347,7 +347,10 @@ fn extract_cloudinary_public_id(url: &str) -> String {
 
 /// Simple MD5 hash (hex string) for Cloudinary signature.
 fn md5_hash(input: &str) -> String {
-    let digest = md5::compute(input.as_bytes());
+    use md5::{Md5, Digest};
+    let mut hasher = Md5::new();
+    hasher.update(input.as_bytes());
+    let digest = hasher.finalize();
     format!("{:x}", digest)
 }
 
