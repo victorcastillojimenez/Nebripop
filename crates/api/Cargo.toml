@@ -12,6 +12,7 @@ ratings = { path = "../ratings" }
 favorites = { path = "../favorites" }
 geo = { path = "../geo" }
 payments = { path = "../payments" }
+search = { path = "../search" }
 axum = { workspace = true }
 tokio = { workspace = true }
 sqlx = { workspace = true }

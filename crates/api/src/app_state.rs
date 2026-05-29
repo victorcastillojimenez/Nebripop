@@ -12,6 +12,7 @@ use payments::adapters::listing_adapter::PaymentsListingAdapter;
 use payments::adapters::payment_repository::PostgresPaymentRepository;
 use payments::adapters::stripe_adapter::StripeAdapter;
 use ratings::adapters::rating_repository::RatingRepository;
+use search::adapters::meilisearch_adapter::MeiliSearchAdapter;
 use users::adapters::user_repository::UserRepository;
 
 #[derive(Clone)]
@@ -32,6 +33,7 @@ pub struct AppState {
     pub payment_repo: PostgresPaymentRepository,
     pub stripe_adapter: StripeAdapter,
     pub listing_service: PaymentsListingAdapter,
+    pub search_engine: Option<MeiliSearchAdapter>,
 }
 
 impl AppState {
@@ -68,6 +70,9 @@ impl AppState {
         );
         let listing_service = PaymentsListingAdapter::new(pool.clone());
 
+        // Initialize MeiliSearch engine if configured
+        let search_engine = Self::init_search_engine().await;
+
         Ok(Self {
             pool,
             jwt_secret,
@@ -85,7 +90,54 @@ impl AppState {
             payment_repo,
             stripe_adapter,
             listing_service,
+            search_engine,
         })
+    }
+
+    /// Initialize the MeiliSearch engine from environment variables.
+    ///
+    /// Requires `MEILISEARCH_URL` (default: `http://localhost:7700`).
+    /// Optionally accepts `MEILISEARCH_API_KEY`.
+    ///
+    /// If `MEILISEARCH_URL` is not set, the engine is `None` (SQL fallback only).
+    async fn init_search_engine() -> Option<MeiliSearchAdapter> {
+        let meili_url = match std::env::var("MEILISEARCH_URL") {
+            Ok(url) => url,
+            Err(_) => {
+                tracing::info!(
+                    "MEILISEARCH_URL not set — search will use SQL ILIKE fallback"
+                );
+                return None;
+            }
+        };
+
+        let api_key = std::env::var("MEILISEARCH_API_KEY").ok();
+
+        let engine = match MeiliSearchAdapter::new(&meili_url, api_key.as_deref()) {
+            Ok(e) => e,
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "Failed to create MeiliSearch client — search will use SQL ILIKE fallback"
+                );
+                return None;
+            }
+        };
+
+        // Attempt index setup; warn on failure but don't crash startup
+        match engine.setup_index().await {
+            Ok(()) => {
+                tracing::info!("MeiliSearch index configured successfully");
+                Some(engine)
+            }
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "Failed to configure MeiliSearch index — search will use SQL ILIKE fallback"
+                );
+                None
+            }
+        }
     }
 }
 
@@ -176,5 +228,11 @@ impl FromRef<AppState> for StripeAdapter {
 impl FromRef<AppState> for PaymentsListingAdapter {
     fn from_ref(state: &AppState) -> Self {
         state.listing_service.clone()
+    }
+}
+
+impl FromRef<AppState> for Option<MeiliSearchAdapter> {
+    fn from_ref(state: &AppState) -> Self {
+        state.search_engine.clone()
     }
 }
