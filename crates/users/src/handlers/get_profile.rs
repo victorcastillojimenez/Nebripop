@@ -1,11 +1,13 @@
 use axum::extract::{Path, State};
 use axum::Json;
+use rust_decimal::prelude::ToPrimitive;
 use uuid::Uuid;
 
 use crate::adapters::user_repository::UserRepository;
 use crate::dtos::PublicProfileDto;
 use crate::errors::UserError;
 use crate::models::PublicProfile;
+use crate::ports::UserRepositoryPort;
 
 use common::errors::AppError;
 
@@ -20,8 +22,8 @@ pub async fn get_profile_handler(
         .find_by_id(user_id)
         .await
         .map_err(|e| match e {
-            UserError::DatabaseError(msg) => {
-                tracing::error!("Database error in get_profile: {}", msg);
+            UserError::DatabaseError(db_err) => {
+                tracing::error!("Database error in get_profile: {}", db_err);
                 AppError::Internal("Error interno del servidor".to_string())
             }
             _ => AppError::Internal("Error interno del servidor".to_string()),
@@ -33,10 +35,9 @@ pub async fn get_profile_handler(
         id: user.id,
         display_name: user.display_name,
         avatar_url: user.avatar_url,
-        rating_avg: user.rating_avg.map(|d| {
-            let f: f64 = d.to_string().parse().unwrap_or(0.0);
-            f
-        }).unwrap_or(0.0),
+        rating_avg: user.rating_avg
+            .and_then(|d| d.to_f64())
+            .unwrap_or(0.0),
         total_ratings: user.total_ratings,
         created_at: user.created_at,
     };

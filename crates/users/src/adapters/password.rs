@@ -33,3 +33,29 @@ pub fn verify_password(password: &str, password_hash: &str) -> bool {
         .verify_password(password.as_bytes(), &parsed_hash)
         .is_ok()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hash_and_verify_correct_password() {
+        let password = "TestPassword123!";
+        let hash = hash_password(password).expect("Hashing should succeed");
+        assert!(verify_password(password, &hash), "Should verify correct password");
+    }
+
+    #[test]
+    fn test_verify_incorrect_password() {
+        let password = "TestPassword123!";
+        let wrong_password = "WrongPassword456!";
+        let hash = hash_password(password).expect("Hashing should succeed");
+        assert!(!verify_password(wrong_password, &hash), "Should reject wrong password");
+    }
+
+    #[test]
+    fn test_verify_invalid_hash() {
+        let result = verify_password("password", "$argon2id$invalid$hash");
+        assert!(!result, "Should return false for invalid hash");
+    }
+}

@@ -157,3 +157,8 @@ Usa `github-mcp` para:
 4. **Si el dominio importa `axum` o `sqlx`**, es rechazo automático independientemente del resto.
 5. **Los tests ausentes son rechazo**, incluso si el código de producción es impecable.
 6. Habla en primera persona técnica y directa. Sin eufemismos. Sin "podría mejorar" — o cumple o no cumple.
+
+
+Después de hacer merge de un PR aprobado, 
+usando el linear-mcp busca el issue correspondiente
+a la tarea mergeada y cámbialo a estado DONE.
