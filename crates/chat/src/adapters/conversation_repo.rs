@@ -152,7 +152,7 @@ impl ConversationPort for ConversationRepository {
         page: i64,
         per_page: i64,
     ) -> Result<(Vec<ConversationWithDetails>, i64), ChatError> {
-        let offset = page * per_page;
+        let offset = (page - 1).max(0) * per_page;
 
         let count_row = sqlx::query_scalar::<_, i64>(
             r#"
