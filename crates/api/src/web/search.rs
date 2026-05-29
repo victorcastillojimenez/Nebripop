@@ -11,6 +11,7 @@ use uuid::Uuid;
 use rust_decimal::Decimal;
 use chrono::{TimeZone, Utc};
 use crate::web::filters;
+use common::auth::AuthUser;
 
 #[derive(Deserialize)]
 pub struct SearchQuery {
@@ -41,8 +42,10 @@ pub struct SearchResultsTemplate {
 
 pub async fn search_handler(
     State(state): State<AppState>,
+    auth: Option<AuthUser>,
     Query(params): Query<SearchQuery>,
 ) -> Result<Html<String>, StatusCode> {
+    let current_user = crate::web::get_current_user(auth, &state).await;
     let page = params.page.unwrap_or(1);
     let page_index = if page > 0 { page - 1 } else { 0 };
     let per_page = 12;
@@ -103,7 +106,7 @@ pub async fn search_handler(
     };
 
     let template = SearchResultsTemplate {
-        current_user: None,
+        current_user,
         flash_success: None,
         flash_error: None,
         listings: listings_dto,

@@ -5,6 +5,7 @@ use crate::app_state::AppState;
 use users::dtos::UserDto;
 use uuid::Uuid;
 use crate::web::filters;
+use common::auth::AuthUser;
 
 #[derive(Template)]
 #[template(path = "payments/checkout.html")]
@@ -47,10 +48,12 @@ pub struct PaymentErrorTemplate {
 }
 
 pub async fn checkout_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
+    auth: Option<AuthUser>,
 ) -> impl IntoResponse {
+    let current_user = crate::web::get_current_user(auth, &state).await;
     let template = CheckoutTemplate {
-        current_user: None,
+        current_user,
         flash_success: None,
         flash_error: None,
         listing_id: Uuid::new_v4(),
@@ -65,10 +68,12 @@ pub async fn checkout_handler(
 }
 
 pub async fn payment_success_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
+    auth: Option<AuthUser>,
 ) -> impl IntoResponse {
+    let current_user = crate::web::get_current_user(auth, &state).await;
     let template = PaymentSuccessTemplate {
-        current_user: None,
+        current_user,
         flash_success: None,
         flash_error: None,
         listing_title: "".to_string(),
@@ -82,10 +87,12 @@ pub async fn payment_success_handler(
 }
 
 pub async fn payment_error_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
+    auth: Option<AuthUser>,
 ) -> impl IntoResponse {
+    let current_user = crate::web::get_current_user(auth, &state).await;
     let template = PaymentErrorTemplate {
-        current_user: None,
+        current_user,
         flash_success: None,
         flash_error: None,
         error_message: Some("Ha ocurrido un error inesperado.".to_string()),

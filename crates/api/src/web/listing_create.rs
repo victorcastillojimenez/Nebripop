@@ -1,9 +1,28 @@
 use askama_axum::IntoResponse;
 use askama::Template;
-use axum::{extract::State, response::Html};
+use axum::{extract::{State, Query, Form}, response::Html};
 use crate::app_state::AppState;
 use users::dtos::UserDto;
 use crate::web::filters;
+use common::auth::AuthUser;
+use listings::dtos::CreateListingDto;
+use listings::usecases::create_listing_usecase::create_listing_usecase;
+use search::ports::SearchEngine;
+
+#[derive(serde::Deserialize)]
+pub struct ListingCreateQuery {
+    pub error: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct CreateListingForm {
+    pub title: String,
+    pub description: String,
+    pub price: rust_decimal::Decimal,
+    pub category: String,
+    pub condition: listings::models::PhysicalCondition,
+    pub city: String,
+}
 
 #[derive(Template)]
 #[template(path = "pages/listing_create.html")]
@@ -15,13 +34,59 @@ pub struct ListingCreateTemplate {
 }
 
 pub async fn listing_create_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
+    auth: Option<AuthUser>,
+    Query(query): Query<ListingCreateQuery>,
 ) -> impl IntoResponse {
+    let current_user = crate::web::get_current_user(auth, &state).await;
+    let flash_error = if query.error.is_some() {
+        Some("Ha ocurrido un error al crear el anuncio. Por favor, comprueba los campos e inténtalo de nuevo.".to_string())
+    } else {
+        None
+    };
+
     let template = ListingCreateTemplate {
-        current_user: None,
+        current_user,
         flash_success: None,
-        flash_error: None,
-        query_param: None,
+        flash_error,
+        query_param: query.error,
     };
     Html(template.render().unwrap())
+}
+
+pub async fn listing_create_post_handler(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Form(form): Form<CreateListingForm>,
+) -> impl IntoResponse {
+    let dto = CreateListingDto {
+        title: form.title,
+        description: form.description,
+        price: form.price,
+        category: form.category,
+        condition: form.condition,
+        location_lat: 40.416775, // Madrid default coords
+        location_lon: -3.703790,
+        city: form.city,
+    };
+
+    let search_engine_ref = state.search_engine.as_ref().map(|s| s as &dyn SearchEngine);
+
+    match create_listing_usecase(&state.listing_repo, search_engine_ref, auth.id, dto).await {
+        Ok(_) => {
+            axum::response::Response::builder()
+                .status(axum::http::StatusCode::SEE_OTHER)
+                .header(axum::http::header::LOCATION, "/listings")
+                .body(axum::body::Body::empty())
+                .unwrap()
+        }
+        Err(e) => {
+            tracing::error!("Error creating listing: {:?}", e);
+            axum::response::Response::builder()
+                .status(axum::http::StatusCode::SEE_OTHER)
+                .header(axum::http::header::LOCATION, "/listings/create?error=1")
+                .body(axum::body::Body::empty())
+                .unwrap()
+        }
+    }
 }

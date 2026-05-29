@@ -6,6 +6,7 @@ use users::dtos::UserDto;
 use chat::dtos::{ConversationResponseDto};
 use uuid::Uuid;
 use crate::web::filters;
+use common::auth::AuthUser;
 
 #[derive(Template)]
 #[template(path = "chat/list.html")]
@@ -41,10 +42,12 @@ pub struct MessageResponseWrapper {
 }
 
 pub async fn chat_list_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
+    auth: Option<AuthUser>,
 ) -> impl IntoResponse {
+    let current_user = crate::web::get_current_user(auth, &state).await;
     let template = ChatListTemplate {
-        current_user: None,
+        current_user,
         flash_success: None,
         flash_error: None,
         conversations: vec![],
@@ -54,12 +57,15 @@ pub async fn chat_list_handler(
 }
 
 pub async fn conversation_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
+    auth: Option<AuthUser>,
     Path(_id): Path<Uuid>,
 ) -> impl IntoResponse {
+    let current_user = crate::web::get_current_user(auth, &state).await;
+    let current_user_id = current_user.as_ref().map(|u| u.id).unwrap_or_else(Uuid::new_v4);
     // Basic mock because we need it to compile and render base.html
     let template = ConversationTemplate {
-        current_user: None,
+        current_user,
         flash_success: None,
         flash_error: None,
         conversation_id: _id,
@@ -69,7 +75,7 @@ pub async fn conversation_handler(
         listing_id: Uuid::new_v4(),
         messages: vec![],
         auth_token: "".to_string(),
-        current_user_id: Uuid::new_v4(),
+        current_user_id,
         query_param: None,
     };
     Html(template.render().unwrap())

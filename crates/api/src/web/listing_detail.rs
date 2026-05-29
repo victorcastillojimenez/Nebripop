@@ -8,6 +8,7 @@ use listings::ports::ListingRepository;
 use uuid::Uuid;
 use rust_decimal::prelude::ToPrimitive;
 use crate::web::filters;
+use common::auth::AuthUser;
 
 #[derive(Template)]
 #[template(path = "pages/listing_detail.html")]
@@ -22,8 +23,11 @@ pub struct ListingDetailTemplate {
 
 pub async fn listing_detail_handler(
     State(state): State<AppState>,
+    auth: Option<AuthUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Html<String>, StatusCode> {
+    let current_user = crate::web::get_current_user(auth, &state).await;
+
     let listing = state.listing_repo.find_by_id(id).await
         .map_err(|e| {
             tracing::error!("Error fetching listing: {}", e);
@@ -49,7 +53,7 @@ pub async fn listing_detail_handler(
     };
 
     let template = ListingDetailTemplate {
-        current_user: None,
+        current_user,
         flash_success: None,
         flash_error: None,
         listing: listing_dto,

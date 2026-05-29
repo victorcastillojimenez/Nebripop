@@ -7,6 +7,7 @@ use listings::dtos::ListingSummaryDto;
 use listings::ports::ListingRepository;
 use crate::web::filters;
 use serde::Deserialize;
+use common::auth::AuthUser;
 
 #[derive(Deserialize)]
 pub struct ListingsQuery {
@@ -29,8 +30,10 @@ pub struct ListingsTemplate {
 
 pub async fn listings_handler(
     State(state): State<AppState>,
+    auth: Option<AuthUser>,
     Query(query): Query<ListingsQuery>,
 ) -> impl IntoResponse {
+    let current_user = crate::web::get_current_user(auth, &state).await;
     let page = query.page.unwrap_or(1);
     let page_index = if page > 0 { page - 1 } else { 0 };
     let per_page = 12;
@@ -58,7 +61,7 @@ pub async fn listings_handler(
     };
 
     let template = ListingsTemplate {
-        current_user: None,
+        current_user,
         flash_success: None,
         flash_error: None,
         listings: listings_dto,

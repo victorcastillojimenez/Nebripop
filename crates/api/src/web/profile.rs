@@ -9,6 +9,7 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use rust_decimal::prelude::ToPrimitive;
 use crate::web::filters;
+use common::auth::AuthUser;
 
 #[derive(Template)]
 #[template(path = "users/profile.html")]
@@ -32,8 +33,11 @@ pub struct MockRating {
 
 pub async fn profile_handler(
     State(state): State<AppState>,
+    auth: Option<AuthUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Html<String>, StatusCode> {
+    let current_user = crate::web::get_current_user(auth, &state).await;
+
     let user = state.user_repo.find_by_id(id).await
         .map_err(|e| {
             tracing::error!("Error fetching user profile: {}", e);
@@ -61,13 +65,15 @@ pub async fn profile_handler(
         .map(ListingSummaryDto::from_listing)
         .collect();
 
+    let is_own_profile = current_user.as_ref().map(|u| u.id == id).unwrap_or(false);
+
     let template = ProfileTemplate {
-        current_user: None,
+        current_user,
         flash_success: None,
         flash_error: None,
         user: user_dto,
         user_listings,
-        is_own_profile: false,
+        is_own_profile,
         ratings: vec![],
         query_param: None,
     };
@@ -78,4 +84,14 @@ pub async fn profile_handler(
             tracing::error!("Failed to render profile template: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })
+}
+
+pub async fn profile_me_handler(
+    auth: Option<AuthUser>,
+) -> impl askama_axum::IntoResponse {
+    if let Some(auth_user) = auth {
+        axum::response::Redirect::to(&format!("/users/{}", auth_user.id))
+    } else {
+        axum::response::Redirect::to("/login")
+    }
 }
