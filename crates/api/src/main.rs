@@ -1,9 +1,6 @@
 use tracing_subscriber::EnvFilter;
 
-mod app_state;
-mod auth_extractor;
-mod errors;
-mod router;
+use api::{app_state, router};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
