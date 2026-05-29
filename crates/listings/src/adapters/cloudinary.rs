@@ -118,11 +118,13 @@ impl ImageStorage for ImageStorageImpl {
 // ───────── Cloudinary implementation ─────────
 
 impl ImageStorageImpl {
+    /// Unsigned upload to Cloudinary using an upload preset.
+    /// Only sends `file`, `upload_preset`, and optionally `public_id`.
+    /// Does NOT send `api_key`, `timestamp`, or `signature` (these cause "Invalid Signature"
+    /// errors when the preset is set to Unsigned mode).
     async fn cloudinary_upload(&self, bytes: Vec<u8>, content_type: &str) -> Result<String, ListingError> {
-        // Build a multipart form-data request to Cloudinary's upload API.
         let cloud_url = self.cloudinary_url.as_deref().unwrap_or("");
-        // Parse cloudinary:// URL format: cloudinary://api_key:api_secret@cloud_name
-        let (api_key, api_secret, cloud_name) = parse_cloudinary_url(cloud_url)?;
+        let cloud_name = extract_cloud_name(cloud_url)?;
 
         let ext = Self::extension_from_mime(content_type);
         let public_id = format!("listings/{}", Uuid::new_v4());
@@ -132,44 +134,20 @@ impl ImageStorageImpl {
             cloud_name
         );
 
-        // Build multipart body
+        // Build multipart body — only unsigned fields
         let boundary = format!("----{}", Uuid::new_v4());
         let mut body = Vec::new();
 
-        // api_key field
-        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
-        body.extend_from_slice(b"Content-Disposition: form-data; name=\"api_key\"\r\n\r\n");
-        body.extend_from_slice(api_key.as_bytes());
-        body.extend_from_slice(b"\r\n");
-
-        // public_id field
+        // public_id field (optional, but useful for organisation)
         body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
         body.extend_from_slice(b"Content-Disposition: form-data; name=\"public_id\"\r\n\r\n");
         body.extend_from_slice(public_id.as_bytes());
         body.extend_from_slice(b"\r\n");
 
-        // timestamp field
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
-        body.extend_from_slice(b"Content-Disposition: form-data; name=\"timestamp\"\r\n\r\n");
-        body.extend_from_slice(timestamp.to_string().as_bytes());
-        body.extend_from_slice(b"\r\n");
-
-        // upload_preset
+        // upload_preset field (required for unsigned upload)
         body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
         body.extend_from_slice(b"Content-Disposition: form-data; name=\"upload_preset\"\r\n\r\n");
         body.extend_from_slice(self.upload_preset.as_bytes());
-        body.extend_from_slice(b"\r\n");
-
-        // signature
-        let sig_string = format!("public_id={public_id}&timestamp={timestamp}{api_secret}");
-        let signature = md5_hash(&sig_string);
-        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
-        body.extend_from_slice(b"Content-Disposition: form-data; name=\"signature\"\r\n\r\n");
-        body.extend_from_slice(signature.as_bytes());
         body.extend_from_slice(b"\r\n");
 
         // file field
@@ -294,7 +272,27 @@ impl ImageStorageImpl {
 
 // ───────── Helper functions ─────────
 
-/// Parse cloudinary:// URL: cloudinary://api_key:api_secret@cloud_name
+/// Extract only the cloud name from a cloudinary:// URL for unsigned uploads.
+/// URL format: cloudinary://api_key:api_secret@cloud_name
+fn extract_cloud_name(url: &str) -> Result<String, ListingError> {
+    let without_scheme = url
+        .strip_prefix("cloudinary://")
+        .or_else(|| url.strip_prefix("cloudinary:"))
+        .unwrap_or(url);
+
+    let parts: Vec<&str> = without_scheme.splitn(2, '@').collect();
+    if parts.len() != 2 {
+        return Err(ListingError::ImageUpload(
+            "Invalid CLOUDINARY_URL format. Expected: cloudinary://api_key:api_secret@cloud_name"
+                .to_string(),
+        ));
+    }
+
+    Ok(parts[1].to_string())
+}
+
+/// Parse full cloudinary:// URL (api_key, api_secret, cloud_name).
+/// Used for signed operations (e.g., delete).
 fn parse_cloudinary_url(url: &str) -> Result<(String, String, String), ListingError> {
     // Remove the scheme
     let without_scheme = url
