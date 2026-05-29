@@ -192,6 +192,7 @@ async fn given_owner_when_update_listing_then_updated(pool: PgPool) {
         location_lat: None,
         location_lon: None,
         city: None,
+        status: None,
     };
 
     let result = update_listing_usecase::update_listing_usecase(
@@ -253,6 +254,7 @@ async fn given_non_owner_when_update_listing_then_not_owner(pool: PgPool) {
         location_lat: None,
         location_lon: None,
         city: None,
+        status: None,
     };
 
     let result = update_listing_usecase::update_listing_usecase(

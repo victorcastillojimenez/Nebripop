@@ -56,6 +56,7 @@ pub struct UpdateListingDto {
     pub location_lat: Option<f64>,
     pub location_lon: Option<f64>,
     pub city: Option<String>,
+    pub status: Option<ListingStatus>,
 }
 
 /// Pagination query parameters.

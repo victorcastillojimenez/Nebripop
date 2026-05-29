@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use uuid::Uuid;
 
 use crate::errors::ListingError;
-use crate::models::{Listing, ListingImage, PhysicalCondition};
+use crate::models::{Listing, ListingImage, ListingStatus, PhysicalCondition};
 
 /// Primary port (repository interface) for listing persistence.
 /// Defined in the domain so usecases depend on this trait, not on infrastructure.
@@ -56,6 +56,7 @@ pub trait ListingRepository: Send + Sync {
         location_lat: Option<f64>,
         location_lon: Option<f64>,
         city: Option<&str>,
+        status: Option<&ListingStatus>,
     ) -> Result<Listing, ListingError>;
 
     /// Soft delete a listing by setting status to 'deleted'.

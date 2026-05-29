@@ -21,6 +21,12 @@ pub struct ListingDetailTemplate {
     pub query_param: Option<String>,
 }
 
+impl ListingDetailTemplate {
+    pub fn is_seller(&self) -> bool {
+        self.current_user.as_ref().map_or(false, |u| u.id == self.listing.seller_id)
+    }
+}
+
 pub async fn listing_detail_handler(
     State(state): State<AppState>,
     auth: Option<AuthUser>,
