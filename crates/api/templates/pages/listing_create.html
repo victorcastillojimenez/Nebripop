@@ -15,6 +15,33 @@
     <!-- Caja del Formulario -->
     <div class="bg-white rounded-3xl border border-slate-100 p-8 sm:p-10 shadow-xl shadow-slate-100/50">
         
+        <!-- Tarjetas de Alerta / Banner de Error -->
+        {% if flash_error.is_some() %}
+        <div class="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3 text-rose-800">
+            <span class="text-xl">⚠️</span>
+            <div>
+                <h4 class="font-display font-bold text-sm">Error al crear el anuncio</h4>
+                <p class="text-xs text-rose-600 mt-0.5">Revisa los datos e intenta de nuevo.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <div id="js-error-banner" class="hidden mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3 text-rose-800">
+            <span class="text-xl">⚠️</span>
+            <div>
+                <h4 class="font-display font-bold text-sm">Error al crear el anuncio</h4>
+                <p class="text-xs text-rose-600 mt-0.5">Revisa los datos.</p>
+            </div>
+        </div>
+
+        <div id="js-login-warning-banner" class="hidden mb-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-3 text-amber-800">
+            <span class="text-xl">🔒</span>
+            <div>
+                <h4 class="font-display font-bold text-sm">Sesión requerida</h4>
+                <p class="text-xs text-amber-600 mt-0.5">Inicia sesión para poder publicar un anuncio.</p>
+            </div>
+        </div>
+
         <form id="form-create-listing" class="space-y-8" action="/listings/create" method="POST">
             
             <!-- Carga de Imagen / Foto (Visual Premium Drag & Drop) (Simulada para MVP) -->
@@ -191,6 +218,17 @@
         const previewContainer = document.getElementById("image-preview-container");
         const previewImage = document.getElementById("image-preview");
         const removeImageBtn = document.getElementById("btn-remove-image");
+
+        // Detect query parameters to show banners
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('error') === '1' || urlParams.get('error') === 'true') {
+            const errBanner = document.getElementById('js-error-banner');
+            if (errBanner) errBanner.classList.remove('hidden');
+        }
+        if (urlParams.get('next')) {
+            const warningBanner = document.getElementById('js-login-warning-banner');
+            if (warningBanner) warningBanner.classList.remove('hidden');
+        }
 
         // Contador de caracteres para Título
         titleInput.addEventListener("input", () => {

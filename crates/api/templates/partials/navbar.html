@@ -44,7 +44,7 @@
                     </a>
 
                     <!-- Perfil -->
-                    <a href="/users/me" class="flex items-center gap-2 group">
+                    <a href="/me" class="flex items-center gap-2 group">
                         <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-600 font-bold flex items-center justify-center border border-brand-200 transition-colors group-hover:bg-brand-500 group-hover:text-white">
                             {{ user.display_name.chars().next().unwrap() }}
                         </div>
@@ -87,7 +87,7 @@
                 {% let user = current_user.as_ref().unwrap() %}
                 <a href="/chat" class="block rounded-xl px-4 py-2.5 text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-brand-500 transition-all">Mensajes / Chats</a>
                 <a href="/listings/create" class="block rounded-xl px-4 py-2.5 text-base font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 transition-all">Subir anuncio</a>
-                <a href="/users/me" class="block rounded-xl px-4 py-2.5 text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-brand-500 transition-all">Mi Perfil ({{ user.display_name }})</a>
+                <a href="/me" class="block rounded-xl px-4 py-2.5 text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-brand-500 transition-all">Mi Perfil ({{ user.display_name }})</a>
             {% else %}
                 <a href="/login" class="block rounded-xl px-4 py-2.5 text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-brand-500 transition-all">Iniciar Sesión</a>
                 <a href="/register" class="block rounded-xl px-4 py-2.5 text-base font-medium text-white bg-brand-500 hover:bg-brand-600 text-center shadow-md shadow-brand-500/10 transition-all">Registrarse</a>

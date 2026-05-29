@@ -38,7 +38,18 @@ pub async fn listing_create_handler(
     auth: Option<AuthUser>,
     Query(query): Query<ListingCreateQuery>,
 ) -> impl IntoResponse {
-    let current_user = crate::web::get_current_user(auth, &state).await;
+    let auth_user = match auth {
+        Some(au) => au,
+        None => {
+            return axum::response::Redirect::to("/login?next=/listings/create").into_response();
+        }
+    };
+
+    let current_user = crate::web::get_current_user(Some(auth_user), &state).await;
+    if current_user.is_none() {
+        return axum::response::Redirect::to("/login?next=/listings/create").into_response();
+    }
+
     let flash_error = if query.error.is_some() {
         Some("Ha ocurrido un error al crear el anuncio. Por favor, comprueba los campos e inténtalo de nuevo.".to_string())
     } else {
@@ -51,14 +62,21 @@ pub async fn listing_create_handler(
         flash_error,
         query_param: query.error,
     };
-    Html(template.render().unwrap())
+    Html(template.render().unwrap()).into_response()
 }
 
 pub async fn listing_create_post_handler(
     State(state): State<AppState>,
-    auth: AuthUser,
+    auth: Option<AuthUser>,
     Form(form): Form<CreateListingForm>,
 ) -> impl IntoResponse {
+    let auth_user = match auth {
+        Some(au) => au,
+        None => {
+            return axum::http::StatusCode::FORBIDDEN.into_response();
+        }
+    };
+
     let dto = CreateListingDto {
         title: form.title,
         description: form.description,
@@ -72,7 +90,7 @@ pub async fn listing_create_post_handler(
 
     let search_engine_ref = state.search_engine.as_ref().map(|s| s as &dyn SearchEngine);
 
-    match create_listing_usecase(&state.listing_repo, search_engine_ref, auth.id, dto).await {
+    match create_listing_usecase(&state.listing_repo, search_engine_ref, auth_user.id, dto).await {
         Ok(_) => {
             axum::response::Response::builder()
                 .status(axum::http::StatusCode::SEE_OTHER)
