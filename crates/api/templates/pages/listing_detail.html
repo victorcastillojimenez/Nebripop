@@ -179,8 +179,8 @@
                         </div>
                     {% else if listing.status.as_str() == "active" %}
                         <!-- Botón Contactar Vendedor (Chat) -->
-                        <a 
-                            href="/chat?listing={{ listing.id }}&recipient={{ seller.id }}" 
+                        <button 
+                            type="button" 
                             id="btn-contact-seller"
                             class="w-full py-3.5 bg-brand-500 hover:bg-brand-600 active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-brand-500/10 hover:shadow-brand-500/20 text-sm"
                         >
@@ -188,7 +188,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
                             <span>Contactar con vendedor</span>
-                        </a>
+                        </button>
 
                         <!-- Botón Comprar / Pago Seguro (Stripe) -->
                         <button 
@@ -230,6 +230,52 @@
 {% block scripts %}
 <script>
     document.addEventListener("DOMContentLoaded", () => {
+        // Gestión del click para contactar con el vendedor (Chat)
+        const btnContactSeller = document.getElementById("btn-contact-seller");
+        if (btnContactSeller) {
+            btnContactSeller.addEventListener("click", async () => {
+                const token = getSessionToken();
+                if (!token) {
+                    window.showToast("Inicia sesión para chatear con el vendedor", "warning");
+                    setTimeout(() => window.location.href = '/login', 1500);
+                    return;
+                }
+
+                window.showToast("Abriendo conversación...", "info");
+
+                try {
+                    const res = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({
+                            listingId: '{{ listing.id }}',
+                            initialMessage: "Hola, me interesa tu anuncio '{{ listing.title }}'"
+                        })
+                    });
+
+                    if (res.ok || res.status === 201) {
+                        const data = await res.json();
+                        window.showToast("¡Conversación iniciada!", "success");
+                        setTimeout(() => {
+                            window.location.href = `/chat/${data.id}`;
+                        }, 1000);
+                    } else if (res.status === 401) {
+                        window.showToast("Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.", "warning");
+                        setTimeout(() => window.location.href = '/login', 1500);
+                    } else {
+                        const errData = await res.json().catch(() => ({}));
+                        const errMsg = errData.message || "No se pudo iniciar la conversación.";
+                        window.showToast(errMsg, "error");
+                    }
+                } catch (err) {
+                    window.showToast("Error de conexión al iniciar el chat", "error");
+                }
+            });
+        }
+
         // Gestión del click de compra segura (Stripe)
         const stripeBtn = document.getElementById("btn-buy-stripe");
         if (stripeBtn) {
@@ -238,11 +284,17 @@
                 window.showToast("Iniciando pasarela de pago Stripe...", "info");
                 
                 try {
-                    const token = localStorage.getItem("token");
+                    const token = getSessionToken();
+                    if (!token) {
+                        window.showToast("Debes iniciar sesión para comprar", "warning");
+                        setTimeout(() => window.location.href = '/login', 1500);
+                        return;
+                    }
+
                     const res = await fetch(`/api/payments/checkout/${listingId}`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': token ? `Bearer ${token}` : '',
+                            'Authorization': 'Bearer ' + token,
                             'Content-Type': 'application/json'
                         }
                     });
@@ -277,11 +329,16 @@
             window.showToast("Actualizando estado del anuncio...", "info");
             
             try {
-                const token = localStorage.getItem("token");
+                const token = getSessionToken();
+                if (!token) {
+                    window.location.href = '/login';
+                    return;
+                }
+
                 const res = await fetch(`/api/listings/${listingId}`, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': token ? `Bearer ${token}` : '',
+                        'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ status })

@@ -106,8 +106,18 @@
     <!-- Footer Partial -->
     {% include "partials/footer.html" %}
 
-    <!-- Script Global de Toasts / Micro-interacciones -->
     <script>
+        function getSessionToken() {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'session_token') {
+                    return decodeURIComponent(value);
+                }
+            }
+            return null;
+        }
+
         // Función global para mostrar notificaciones Toasts premium
         window.showToast = function(message, type = 'info') {
             const container = document.getElementById('toast-container');
@@ -171,12 +181,17 @@
 
             try {
                 const method = isFav ? 'DELETE' : 'POST';
-                const token = localStorage.getItem('token');
+                const token = getSessionToken();
+                if (!token) {
+                    window.showToast("Inicia sesión para guardar favoritos", "warning");
+                    setTimeout(() => window.location.href = '/login', 1500);
+                    return;
+                }
                 
                 const res = await fetch(`/api/favorites/${listingId}`, {
                     method: method,
                     headers: {
-                        'Authorization': token ? `Bearer ${token}` : '',
+                        'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json'
                     }
                 });
