@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use meilisearch_sdk::client::Client;
 use meilisearch_sdk::indexes::Index;
-use meilisearch_sdk::search::SearchResults;
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -169,7 +168,7 @@ impl SearchEngine for MeiliSearchAdapter {
         let index = self.client.index(LISTINGS_INDEX);
 
         index
-            .add_documents(&[doc.clone()], Some("id"))
+            .add_documents(std::slice::from_ref(doc), Some("id"))
             .await
             .map_err(|e| SearchError::MeiliSearchError(format!("Failed to index listing: {e}")))?;
 
