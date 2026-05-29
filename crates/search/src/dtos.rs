@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use uuid::Uuid;
 
 /// Query parameters for the search endpoint.
@@ -13,10 +13,12 @@ pub struct SearchQueryDto {
     /// Category filter (optional).
     pub category: Option<String>,
 
-    /// Minimum price (optional, >= 0).
+    /// Minimum price (optional, >= 0). Empty string deserializes to None.
+    #[serde(default, deserialize_with = "deserialize_optional_float")]
     pub min_price: Option<f64>,
 
-    /// Maximum price (optional, >= 0).
+    /// Maximum price (optional, >= 0). Empty string deserializes to None.
+    #[serde(default, deserialize_with = "deserialize_optional_float")]
     pub max_price: Option<f64>,
 
     /// Latitude for geo-radius search (optional, must be paired with lng).
@@ -65,6 +67,19 @@ impl Default for SearchQueryDto {
             per_page: default_per_page(),
         }
     }
+}
+
+/// Custom deserializer that treats an empty string as `None` instead of
+/// failing with "cannot parse float from empty string".
+fn deserialize_optional_float<'de, D>(d: D) -> Result<Option<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(d)?;
+    if s.is_empty() {
+        return Ok(None);
+    }
+    s.parse::<f64>().map(Some).map_err(serde::de::Error::custom)
 }
 
 fn validate_prices(min_price: Option<f64>, max_price: Option<f64>) -> Result<(), String> {

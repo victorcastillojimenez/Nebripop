@@ -6,7 +6,7 @@ use listings::dtos::ListingSummaryDto;
 use listings::models::{ListingStatus, PhysicalCondition};
 use search::dtos::SearchQueryDto;
 use search::ports::SearchEngine;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use uuid::Uuid;
 use rust_decimal::Decimal;
 use chrono::{TimeZone, Utc};
@@ -17,7 +17,9 @@ use common::auth::AuthUser;
 pub struct SearchQuery {
     pub q: Option<String>,
     pub category: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_float")]
     pub min_price: Option<f64>,
+    #[serde(default, deserialize_with = "deserialize_optional_float")]
     pub max_price: Option<f64>,
     pub condition: Option<Vec<String>>,
     pub page: Option<i64>,
@@ -38,6 +40,19 @@ pub struct SearchResultsTemplate {
     pub min_price: Option<f64>,
     pub max_price: Option<f64>,
     pub selected_conditions: Vec<String>,
+}
+
+/// Custom deserializer that treats an empty string as `None` instead of
+/// failing with "cannot parse float from empty string".
+fn deserialize_optional_float<'de, D>(d: D) -> Result<Option<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(d)?;
+    if s.is_empty() {
+        return Ok(None);
+    }
+    s.parse::<f64>().map(Some).map_err(serde::de::Error::custom)
 }
 
 pub async fn search_handler(
