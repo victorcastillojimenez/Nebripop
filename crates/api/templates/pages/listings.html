@@ -1,0 +1,113 @@
+<!-- crates/api/templates/pages/listings.html -->
+{% extends "base.html" %}
+
+{% block title %}Catálogo de Productos - Nebripop{% endblock %}
+
+{% block content %}
+<!-- Banner de Página -->
+<div class="bg-gradient-to-r from-brand-500 to-accent-500 py-10 px-4 text-white">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="font-display font-black text-3xl sm:text-4xl">Descubre Nebripop</h1>
+            <p class="text-white/85 text-sm font-semibold mt-1">Explora miles de artículos publicados por la comunidad de tu campus</p>
+        </div>
+        <div class="text-xs bg-white/10 backdrop-blur-sm px-4 py-2 rounded-2xl border border-white/20 font-bold">
+            Total anuncios: {{ total_items }}
+        </div>
+    </div>
+</div>
+
+<!-- Layout Principal (Filtros Sidebar + Grid de Catálogo) -->
+<div class="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        
+        <!-- Sidebar de Filtros -->
+        <div class="lg:col-span-1">
+            {% include "partials/filters_sidebar.html" %}
+        </div>
+
+        <!-- Resultados y Grid -->
+        <div class="lg:col-span-3 space-y-8">
+            
+            <!-- Barra de ordenación y totales -->
+            <div class="flex items-center justify-between bg-white px-6 py-4 rounded-3xl border border-slate-100 shadow-sm text-sm">
+                <span class="font-semibold text-slate-500">Mostrando {{ listings.len() }} de {{ total_items }} productos</span>
+                <div class="flex items-center gap-2">
+                    <label for="select-sort" class="text-slate-400 font-medium">Ordenar por:</label>
+                    <select id="select-sort" onchange="window.location.href = this.value" class="bg-slate-50 border border-slate-200 text-slate-700 font-semibold rounded-xl px-3 py-1.5 focus:border-brand-500 outline-none text-xs">
+                        <option value="/listings?sort=recent">Más recientes</option>
+                        <option value="/listings?sort=price_asc">Precio: de menor a mayor</option>
+                        <option value="/listings?sort=price_desc">Precio: de mayor a menor</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Grid de Catálogo -->
+            {% if listings.is_empty() %}
+                {% include "partials/empty_state.html" %}
+            {% else %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    {% for listing in listings %}
+                        {% include "partials/listing_card.html" %}
+                    {% endfor %}
+                </div>
+                
+                <!-- Paginación Premium -->
+                <div class="flex items-center justify-between border-t border-slate-100 pt-6">
+                    <div class="flex-1 flex justify-between sm:hidden">
+                        {% if current_page > 1 %}
+                            <a href="/listings?page={{ current_page - 1 }}" class="relative inline-flex items-center px-4 py-2 border border-slate-200 text-sm font-semibold rounded-2xl bg-white text-slate-700 hover:bg-slate-50 transition-colors">
+                                Anterior
+                            </a>
+                        {% endif %}
+                        {% if current_page < total_pages %}
+                            <a href="/listings?page={{ current_page + 1 }}" class="relative inline-flex items-center px-4 py-2 border border-slate-200 text-sm font-semibold rounded-2xl bg-white text-slate-700 hover:bg-slate-50 transition-colors">
+                                Siguiente
+                            </a>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-slate-500 font-semibold">
+                                Página <span class="font-bold text-slate-800">{{ current_page }}</span> de <span class="font-bold text-slate-800">{{ total_pages }}</span>
+                            </p>
+                        </div>
+                        <div>
+                            <nav class="relative z-0 inline-flex rounded-2xl shadow-sm -space-x-px gap-1.5" aria-label="Pagination">
+                                <!-- Botón Página Anterior -->
+                                {% if current_page > 1 %}
+                                    <a href="/listings?page={{ current_page - 1 }}" class="relative inline-flex items-center p-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-500 hover:bg-brand-50 hover:text-brand-500 transition-colors">
+                                        <span class="sr-only">Anterior</span>
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </a>
+                                {% endif %}
+
+                                <!-- Números de páginas -->
+                                {% for page_num in 1..=total_pages %}
+                                    <a href="/listings?page={{ page_num }}" class="relative inline-flex items-center px-4 py-2 rounded-xl border text-sm font-bold transition-all {% if page_num == current_page %}bg-brand-500 border-brand-500 text-white shadow-md shadow-brand-500/10{% else %}border-slate-200 bg-white text-slate-600 hover:bg-brand-50 hover:text-brand-500{% endif %}">
+                                        {{ page_num }}
+                                    </a>
+                                {% endfor %}
+
+                                <!-- Botón Página Siguiente -->
+                                {% if current_page < total_pages %}
+                                    <a href="/listings?page={{ current_page + 1 }}" class="relative inline-flex items-center p-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-500 hover:bg-brand-50 hover:text-brand-500 transition-colors">
+                                        <span class="sr-only">Siguiente</span>
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </a>
+                                {% endif %}
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}

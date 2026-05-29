@@ -1,0 +1,18 @@
+<!-- crates/api/templates/partials/empty_state.html -->
+<div class="flex flex-col items-center justify-center text-center py-16 px-4 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+    <div class="w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
+        <span class="text-4xl">🔍</span>
+    </div>
+    <h3 class="font-display font-bold text-xl text-slate-800 mb-2">No se encontraron productos</h3>
+    <p class="text-slate-500 max-w-sm mb-6 text-sm leading-relaxed">
+        Lo sentimos, no hay anuncios disponibles que coincidan con tu búsqueda o filtros en este momento. ¡Prueba quitando algún filtro o busca otro término!
+    </p>
+    <div class="flex gap-4">
+        <a href="/" class="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-2xl shadow-md shadow-brand-500/10 transition-all text-sm">
+            Volver al Inicio
+        </a>
+        <a href="/search" class="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-2xl transition-all text-sm">
+            Limpiar Filtros
+        </a>
+    </div>
+</div>

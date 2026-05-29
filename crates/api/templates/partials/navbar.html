@@ -1,0 +1,114 @@
+<!-- crates/api/templates/partials/navbar.html -->
+<header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex h-16 items-center justify-between gap-4">
+            
+            <!-- Logo de Nebripop -->
+            <div class="flex items-center gap-2">
+                <a href="/" class="font-display font-bold text-2xl text-brand-500 flex items-center gap-1.5 transition-transform hover:scale-[1.02]">
+                    <span class="text-3xl animate-bounce">🎈</span>
+                    <span class="tracking-tight text-slate-800">Nebri<span class="text-brand-500">pop</span></span>
+                </a>
+            </div>
+
+            <!-- Buscador Integrado en Desktop -->
+            <div class="hidden md:flex flex-grow max-w-lg">
+                {% include "partials/search_bar.html" %}
+            </div>
+
+            <!-- Navegación y Acciones -->
+            <nav class="hidden md:flex items-center gap-4">
+                <!-- Enlace rápido de búsqueda -->
+                <a href="/search" class="p-2 text-slate-500 hover:text-brand-500 rounded-xl hover:bg-slate-50 transition-all" aria-label="Buscar">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </a>
+
+                {% if current_user.is_some() %}
+                    {% let user = current_user.as_ref().unwrap() %}
+                    <!-- Botón Subir Producto -->
+                    <a href="/listings/create" class="flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-2xl font-semibold shadow-md shadow-brand-500/10 hover:shadow-lg hover:shadow-brand-500/20 -translate-y-[1px] hover:-translate-y-[2px] active:translate-y-0 transition-all duration-200 text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        <span>Subir anuncio</span>
+                    </a>
+
+                    <!-- Mensajes / Chats -->
+                    <a href="/chat" class="relative p-2 text-slate-500 hover:text-brand-500 hover:bg-slate-50 rounded-xl transition-all" aria-label="Mensajes">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                        </svg>
+                        <span id="unread-dot" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-brand-500 rounded-full ring-2 ring-white animate-ping"></span>
+                    </a>
+
+                    <!-- Perfil -->
+                    <a href="/users/me" class="flex items-center gap-2 group">
+                        <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-600 font-bold flex items-center justify-center border border-brand-200 transition-colors group-hover:bg-brand-500 group-hover:text-white">
+                            {{ user.display_name.chars().next().unwrap() }}
+                        </div>
+                        <span class="text-sm font-semibold text-slate-700 group-hover:text-brand-500 transition-colors">{{ user.display_name }}</span>
+                    </a>
+                {% else %}
+                    <!-- Botones para estado anónimo -->
+                    <a href="/login" class="text-sm font-semibold text-slate-600 hover:text-brand-500 transition-colors px-3 py-2 rounded-xl">Iniciar Sesión</a>
+                    <a href="/register" class="text-sm font-semibold bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-2xl shadow-sm hover:shadow-md transition-all">Registrarse</a>
+                {% endif %}
+            </nav>
+
+            <!-- Botón Hamburger para Móviles -->
+            <div class="flex items-center md:hidden">
+                <button id="btn-mobile-menu" type="button" class="inline-flex items-center justify-center p-2 rounded-xl text-slate-500 hover:text-brand-500 hover:bg-slate-100 focus:outline-none transition-colors" aria-expanded="false">
+                    <span class="sr-only">Abrir menú principal</span>
+                    <svg class="block h-6 w-6" id="menu-closed-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                    <svg class="hidden h-6 w-6" id="menu-open-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Menú Móvil (Colapsable) -->
+    <div class="hidden md:hidden border-t border-slate-100 bg-white" id="mobile-menu">
+        <div class="space-y-1 px-4 pt-2 pb-4">
+            
+            <div class="pb-3 mb-3 border-b border-slate-100">
+                {% include "partials/search_bar.html" %}
+            </div>
+
+            <a href="/search" class="block rounded-xl px-4 py-2.5 text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-brand-500 transition-all">Buscar Productos</a>
+            
+            {% if current_user.is_some() %}
+                {% let user = current_user.as_ref().unwrap() %}
+                <a href="/chat" class="block rounded-xl px-4 py-2.5 text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-brand-500 transition-all">Mensajes / Chats</a>
+                <a href="/listings/create" class="block rounded-xl px-4 py-2.5 text-base font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 transition-all">Subir anuncio</a>
+                <a href="/users/me" class="block rounded-xl px-4 py-2.5 text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-brand-500 transition-all">Mi Perfil ({{ user.display_name }})</a>
+            {% else %}
+                <a href="/login" class="block rounded-xl px-4 py-2.5 text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-brand-500 transition-all">Iniciar Sesión</a>
+                <a href="/register" class="block rounded-xl px-4 py-2.5 text-base font-medium text-white bg-brand-500 hover:bg-brand-600 text-center shadow-md shadow-brand-500/10 transition-all">Registrarse</a>
+            {% endif %}
+        </div>
+    </div>
+</header>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const btn = document.getElementById("btn-mobile-menu");
+        const menu = document.getElementById("mobile-menu");
+        const closedIcon = document.getElementById("menu-closed-icon");
+        const openIcon = document.getElementById("menu-open-icon");
+
+        btn.addEventListener("click", () => {
+            const isExpanded = btn.getAttribute("aria-expanded") === "true";
+            btn.setAttribute("aria-expanded", !isExpanded);
+            menu.classList.toggle("hidden");
+            closedIcon.classList.toggle("hidden");
+            openIcon.classList.toggle("hidden");
+        });
+    });
+</script>

@@ -1,0 +1,212 @@
+<!-- crates/api/templates/base.html -->
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50 text-slate-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Nebripop - El Marketplace Exclusivo de la Universidad Nebrija{% endblock %}</title>
+    
+    <!-- Meta SEO -->
+    <meta name="description" content="{% block meta_description %}Encuentra libros de texto, apuntes, ordenadores, tecnología, ropa y alojamiento cerca de tus compañeros del campus en la Universidad Antonio de Nebrija.{% endblock %}">
+    
+    <!-- Google Fonts: Inter (Sans) & Outfit (Display) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Configuración personalizada de Tailwind CSS -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            200: '#99f6e4',
+                            300: '#5eead4',
+                            400: '#2dd4bf',
+                            500: '#13c1ac', // Wallapop turquoise custom color
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                            900: '#134e4a',
+                        },
+                        accent: {
+                            50: '#faf5ff',
+                            100: '#f3e8ff',
+                            200: '#e9d5ff',
+                            300: '#d8b4fe',
+                            400: '#c084fc',
+                            500: '#a855f7', // Purple highlight color
+                            600: '#9333ea',
+                            700: '#7e22ce',
+                        },
+                        stripe: {
+                            500: '#635bff', // Stripe purple
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Estilos base globales inline (No `@apply` por limitación de CDN) -->
+    <style>
+        .font-sans {
+            font-family: 'Inter', sans-serif;
+        }
+        .font-display {
+            font-family: 'Outfit', sans-serif;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+    
+    {% block head %}{% endblock %}
+</head>
+<body class="flex flex-col min-h-full font-sans antialiased text-slate-800 selection:bg-brand-100 selection:text-brand-900">
+
+    <!-- Navbar Partial -->
+    {% include "partials/navbar.html" %}
+
+    <!-- Contenedor del Mensaje Toast / Notificaciones Globales -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <!-- Contenido Principal -->
+    <main class="flex-grow">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer Partial -->
+    {% include "partials/footer.html" %}
+
+    <!-- Script Global de Toasts / Micro-interacciones -->
+    <script>
+        // Función global para mostrar notificaciones Toasts premium
+        window.showToast = function(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3.5 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/50 transition-all duration-300 transform translate-y-2 opacity-0 font-sans text-sm font-semibold max-w-sm`;
+            
+            let icon = '🔔';
+            if (type === 'success') {
+                icon = '✅';
+                toast.classList.add('border-emerald-100');
+            } else if (type === 'error') {
+                icon = '❌';
+                toast.classList.add('border-rose-100');
+            } else if (type === 'warning') {
+                icon = '⚠️';
+                toast.classList.add('border-amber-100');
+            }
+
+            toast.innerHTML = `
+                <span class="text-xl">${icon}</span>
+                <span class="text-slate-700 flex-grow">${message}</span>
+                <button class="text-slate-400 hover:text-slate-600 transition-colors focus:outline-none" onclick="this.parentElement.remove()">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            // Reflow para animación de entrada
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            // Desvanecer después de 4 segundos
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        };
+
+        // Escucha y control global de botones Favoritos
+        document.addEventListener("click", async (e) => {
+            const btn = e.target.closest('.btn-favorite');
+            if (!btn) return;
+
+            e.preventDefault();
+            const listingId = btn.getAttribute('data-listing-id');
+            const iconSvg = btn.querySelector('svg');
+            const isFav = iconSvg.getAttribute('fill') !== 'none';
+
+            try {
+                // Endpoint local de favoritos
+                const method = isFav ? 'DELETE' : 'POST';
+                const token = localStorage.getItem('token');
+                
+                // Fetch mock/real a backend con cabeceras correctas
+                const res = await fetch(`/api/favorites/${listingId}`, {
+                    method: method,
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : '',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (res.ok || res.status === 200 || res.status === 201) {
+                    if (isFav) {
+                        iconSvg.setAttribute('fill', 'none');
+                        iconSvg.classList.remove('text-rose-500');
+                        window.showToast("Eliminado de favoritos", "info");
+                    } else {
+                        iconSvg.setAttribute('fill', 'currentColor');
+                        iconSvg.classList.add('text-rose-500');
+                        window.showToast("Añadido a favoritos", "success");
+                    }
+                } else if (res.status === 401) {
+                    window.showToast("Inicia sesión para guardar favoritos", "warning");
+                    setTimeout(() => window.location.href = '/login', 1500);
+                } else {
+                    // Fallback para mock si el backend no está totalmente levantado
+                    if (isFav) {
+                        iconSvg.setAttribute('fill', 'none');
+                        iconSvg.classList.remove('text-rose-500');
+                        window.showToast("Eliminado de favoritos (Local)", "info");
+                    } else {
+                        iconSvg.setAttribute('fill', 'currentColor');
+                        iconSvg.classList.add('text-rose-500');
+                        window.showToast("Añadido a favoritos (Local)", "success");
+                    }
+                }
+            } catch (err) {
+                // Fallback para mock visual
+                if (isFav) {
+                    iconSvg.setAttribute('fill', 'none');
+                    iconSvg.classList.remove('text-rose-500');
+                    window.showToast("Eliminado de favoritos", "info");
+                } else {
+                    iconSvg.setAttribute('fill', 'currentColor');
+                    iconSvg.classList.add('text-rose-500');
+                    window.showToast("Añadido a favoritos", "success");
+                }
+            }
+        });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

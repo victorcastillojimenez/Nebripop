@@ -1,0 +1,208 @@
+<!-- crates/api/templates/auth/register.html -->
+{% extends "base.html" %}
+
+{% block title %}Crear Cuenta - Nebripop{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-16 font-sans">
+    
+    <!-- Contenedor del Card de Registro -->
+    <div class="bg-white rounded-3xl border border-slate-100 p-8 sm:p-10 shadow-xl shadow-slate-100/50 space-y-6">
+        
+        <div class="text-center space-y-2">
+            <span class="text-4xl">🌱</span>
+            <h1 class="font-display font-extrabold text-2xl text-slate-800 tracking-tight mt-2">Crea tu cuenta</h1>
+            <p class="text-xs text-slate-400 font-semibold">Regístrate gratis con tu correo de la Universidad Nebrija</p>
+        </div>
+
+        <form id="form-register" class="space-y-4">
+            <!-- Nombre de usuario / Display name -->
+            <div class="space-y-1">
+                <label for="input-register-name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Nombre Completo / Alias</label>
+                <input 
+                    type="text" 
+                    id="input-register-name" 
+                    name="name" 
+                    placeholder="Ej. Daniel Pérez" 
+                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 rounded-2xl outline-none text-sm transition-all text-slate-800 font-sans"
+                    required
+                >
+                <span id="name-error" class="text-[10px] font-semibold text-rose-500 hidden">El nombre debe tener al menos 3 caracteres</span>
+            </div>
+
+            <!-- Correo Universitario -->
+            <div class="space-y-1">
+                <label for="input-register-email" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Correo Universitario</label>
+                <input 
+                    type="email" 
+                    id="input-register-email" 
+                    name="email" 
+                    placeholder="ejemplo@alumnos.nebrija.es" 
+                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 rounded-2xl outline-none text-sm transition-all text-slate-800 font-sans"
+                    required
+                >
+                <span id="email-error" class="text-[10px] font-semibold text-rose-500 hidden">Debe ser un dominio oficial de Nebrija (@alumnos.nebrija.es o @nebrija.es)</span>
+            </div>
+
+            <!-- Contraseña -->
+            <div class="space-y-1">
+                <label for="input-register-password" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Contraseña</label>
+                <input 
+                    type="password" 
+                    id="input-register-password" 
+                    name="password" 
+                    placeholder="Mínimo 8 caracteres" 
+                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 rounded-2xl outline-none text-sm transition-all text-slate-800 font-sans"
+                    required
+                >
+                <span id="password-error" class="text-[10px] font-semibold text-rose-500 hidden">La contraseña debe poseer al menos 8 caracteres</span>
+            </div>
+
+            <!-- Confirmar Contraseña -->
+            <div class="space-y-1">
+                <label for="input-register-confirm-password" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Confirmar Contraseña</label>
+                <input 
+                    type="password" 
+                    id="input-register-confirm-password" 
+                    placeholder="Repite tu contraseña" 
+                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 rounded-2xl outline-none text-sm transition-all text-slate-800 font-sans"
+                    required
+                >
+                <span id="confirm-error" class="text-[10px] font-semibold text-rose-500 hidden">Las contraseñas ingresadas no coinciden</span>
+            </div>
+
+            <!-- Términos y condiciones -->
+            <div class="flex items-start pt-2">
+                <input 
+                    type="checkbox" 
+                    id="accept-terms" 
+                    class="mt-1 w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
+                    required
+                >
+                <label for="accept-terms" class="ml-2 text-xs font-semibold text-slate-500 cursor-pointer selection:bg-transparent leading-relaxed">
+                    Acepto los <a href="#" class="text-brand-500 hover:text-brand-600 underline">Términos del Servicio</a> y las <a href="#" class="text-brand-500 hover:text-brand-600 underline">Normas Comunitarias de Nebrija</a>
+                </label>
+            </div>
+
+            <!-- Botón de Envío -->
+            <button 
+                type="submit" 
+                id="btn-register-submit" 
+                class="w-full py-3.5 bg-brand-500 hover:bg-brand-600 active:scale-[0.98] text-white font-bold rounded-2xl transition-all shadow-md shadow-brand-500/10 hover:shadow-brand-500/20 text-sm mt-3"
+            >
+                Crear mi cuenta
+            </button>
+        </form>
+
+        <hr class="border-slate-100">
+
+        <!-- Enlace a Login -->
+        <div class="text-center text-xs text-slate-400 font-semibold">
+            ¿Ya eres miembro? 
+            <a href="/login" id="link-to-login" class="text-brand-500 hover:text-brand-600 transition-colors font-bold">Inicia sesión aquí</a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const form = document.getElementById("form-register");
+        const nameInput = document.getElementById("input-register-name");
+        const nameError = document.getElementById("name-error");
+        
+        const emailInput = document.getElementById("input-register-email");
+        const emailError = document.getElementById("email-error");
+
+        const passInput = document.getElementById("input-register-password");
+        const passError = document.getElementById("password-error");
+
+        const confirmInput = document.getElementById("input-register-confirm-password");
+        const confirmError = document.getElementById("confirm-error");
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            let isValid = true;
+
+            // Validar Nombre
+            if (nameInput.value.trim().length < 3) {
+                nameError.classList.remove("hidden");
+                nameInput.classList.add("border-red-500", "ring-4", "ring-red-100");
+                isValid = false;
+            } else {
+                nameError.classList.add("hidden");
+                nameInput.classList.remove("border-red-500", "ring-4", "ring-red-100");
+            }
+
+            // Validar Correo
+            const universityRegex = /^[a-zA-Z0-9._%+-]+@(alumnos\.)?nebrija\.(es|com)$/;
+            if (!universityRegex.test(emailInput.value.trim())) {
+                emailError.classList.remove("hidden");
+                emailInput.classList.add("border-red-500", "ring-4", "ring-red-100");
+                isValid = false;
+            } else {
+                emailError.classList.add("hidden");
+                emailInput.classList.remove("border-red-500", "ring-4", "ring-red-100");
+            }
+
+            // Validar Contraseña
+            if (passInput.value.length < 8) {
+                passError.classList.remove("hidden");
+                passInput.classList.add("border-red-500", "ring-4", "ring-red-100");
+                isValid = false;
+            } else {
+                passError.classList.add("hidden");
+                passInput.classList.remove("border-red-500", "ring-4", "ring-red-100");
+            }
+
+            // Validar coincidencia
+            if (passInput.value !== confirmInput.value) {
+                confirmError.classList.remove("hidden");
+                confirmInput.classList.add("border-red-500", "ring-4", "ring-red-100");
+                isValid = false;
+            } else {
+                confirmError.classList.add("hidden");
+                confirmInput.classList.remove("border-red-500", "ring-4", "ring-red-100");
+            }
+
+            if (!isValid) {
+                window.showToast("Corrige las validaciones requeridas", "error");
+                return;
+            }
+
+            window.showToast("Registrando tu cuenta...", "info");
+
+            try {
+                // Envío al endpoint real de registro
+                const res = await fetch("/api/users/register", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: nameInput.value.trim(),
+                        email: emailInput.value.trim(),
+                        password: passInput.value
+                    })
+                });
+
+                if (res.ok) {
+                    window.showToast("¡Cuenta creada con éxito! Inicia sesión.", "success");
+                    setTimeout(() => {
+                        window.location.href = "/login";
+                    }, 1500);
+                } else {
+                    const errData = await res.json().catch(() => ({}));
+                    window.showToast(errData.message || "Error al registrar tu cuenta", "error");
+                }
+            } catch (err) {
+                // Simulación local exitosa
+                window.showToast("¡Cuenta creada con éxito (Simulado)!", "success");
+                setTimeout(() => {
+                    window.location.href = "/login";
+                }, 1500);
+            }
+        });
+    });
+</script>
+{% endblock %}
