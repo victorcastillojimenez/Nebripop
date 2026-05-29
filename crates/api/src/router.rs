@@ -38,20 +38,8 @@ pub fn build_router() -> Router<AppState> {
         .merge(listings_router)
         .merge(payments_router)
         .merge(search_router)
-        // Web Handlers
-        .route("/", get(web::home::home_handler))
-        .route("/listings", get(web::listings::listings_handler))
-        .route("/listings/:id", get(web::listing_detail::listing_detail_handler))
-        .route("/listings/new", get(web::listing_create::listing_create_handler))
-        .route("/search", get(web::search::search_handler))
-        .route("/login", get(web::auth::login_handler))
-        .route("/register", get(web::auth::register_handler))
-        .route("/users/:id", get(web::profile::profile_handler))
-        .route("/chat", get(web::chat_web::chat_list_handler))
-        .route("/chat/:id", get(web::chat_web::conversation_handler))
-        .route("/pay", get(web::checkout::checkout_handler))
-        .route("/pay/success", get(web::checkout::payment_success_handler))
-        .route("/pay/error", get(web::checkout::payment_error_handler))
+        // Rutas HTML bajo /web
+        .nest("/web", web::web_router())
         // Global middleware
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
