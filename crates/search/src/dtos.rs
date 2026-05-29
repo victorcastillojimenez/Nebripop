@@ -164,7 +164,7 @@ impl SearchQueryDto {
 
         Ok(Self {
             page: self.page.max(0),
-            per_page: self.per_page.min(100).max(1),
+            per_page: self.per_page.clamp(1, 100),
             ..self
         })
     }

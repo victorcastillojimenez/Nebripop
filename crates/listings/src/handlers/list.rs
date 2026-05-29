@@ -20,7 +20,7 @@ pub async fn list_listings_handler(
     State(repo): State<ListingRepositoryImpl>,
     Query(params): Query<PaginationParams>,
 ) -> Result<Json<PaginatedResponse<ListingSummaryDto>>, AppError> {
-    let per_page = params.per_page.min(100).max(1);
+    let per_page = params.per_page.clamp(1, 100);
     let page = params.page.max(0);
     let category = params.category.as_deref();
 

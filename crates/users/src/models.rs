@@ -32,7 +32,7 @@ impl UserRole {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn from_role_str(s: &str) -> Option<Self> {
         match s {
             "user" => Some(UserRole::User),
             "admin" => Some(UserRole::Admin),
