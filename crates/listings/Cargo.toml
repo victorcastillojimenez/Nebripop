@@ -21,3 +21,13 @@ async-trait = { workspace = true }
 reqwest = { version = "0.12", features = ["json"] }
 md-5 = "0.10"
 search = { path = "../search" }
+
+[dev-dependencies]
+tokio = { workspace = true }
+sqlx = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+chrono = { workspace = true }
+rust_decimal = { workspace = true }
