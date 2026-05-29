@@ -122,85 +122,84 @@
 
 {% block scripts %}
 <script>
-(function() {
-    'use strict';
-
-    var container = document.getElementById('messages-container');
-    var form = document.getElementById('chat-form');
-    var input = document.getElementById('message-input');
-    var sendBtn = document.getElementById('send-button');
-    var wsStatus = document.getElementById('ws-status');
-
-    var roomId = container.dataset.roomId;
-    var authToken = container.dataset.token;
-    var currentUserId = container.dataset.currentUserId;
-
-    var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    var wsUrl = protocol + '//' + location.host + '/chat/' + roomId + '/ws?token=' + authToken;
-
-    var socket = null;
-    var reconnectAttempts = 0;
-    var maxReconnectAttempts = 10;
-    var reconnectDelay = 1000;
-
-    // Scroll al fondo al cargar
-    container.scrollTop = container.scrollHeight;
-
-    function connect() {
-        socket = new WebSocket(wsUrl);
-
-        socket.addEventListener('open', function() {
-            reconnectAttempts = 0;
-            reconnectDelay = 1000;
-            wsStatus.classList.add('hidden');
-            sendBtn.disabled = false;
-        });
-
-        socket.addEventListener('message', function(event) {
-            try {
-                var message = JSON.parse(event.data);
-                appendMessageBubble(message);
-            } catch (e) {
-                console.error('Error parsing WebSocket message:', e);
-            }
-        });
-
-        socket.addEventListener('close', function() {
-            sendBtn.disabled = true;
-            if (reconnectAttempts < maxReconnectAttempts) {
-                wsStatus.classList.remove('hidden');
-                reconnectAttempts++;
-                var delay = Math.min(reconnectDelay * Math.pow(1.5, reconnectAttempts), 30000);
-                setTimeout(connect, delay);
-            }
-        });
-
-        socket.addEventListener('error', function() {
-            socket.close();
-        });
+    function getCookie(name) {
+        const nameEQ = name + "=";
+        const ca = document.cookie.split(';');
+        for(let i=0;i < ca.length;i++) {
+            let c = ca[i];
+            while (c.charAt(0)==' ') c = c.substring(1,c.length);
+            if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+        }
+        return null;
     }
 
-    function appendMessageBubble(message) {
-        var isOwn = message.sender_id === currentUserId;
-        var wrapper = document.createElement('div');
+    const container = document.getElementById('messages-container');
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-button');
+    const conversationId = '{{ conversation_id }}';
+    const currentUserId = '{{ current_user_id }}';
+
+    // Scroll to bottom on load
+    container.scrollTop = container.scrollHeight;
+
+    const token = getCookie('session_token');
+    const ws = new WebSocket(
+      'ws://localhost:8080/api/chat/' + conversationId
+      + '/ws?token=' + token
+    );
+   
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      appendMessage(msg);
+    };
+   
+    sendBtn.onclick = () => {
+      if (!input.value.trim()) return;
+      ws.send(JSON.stringify({content: input.value}));
+      input.value = '';
+    };
+
+    form.onsubmit = (event) => {
+        event.preventDefault();
+        sendBtn.click();
+    };
+
+    function appendMessage(message) {
+        const senderId = message.senderId || message.sender_id;
+        const content = message.content;
+        const createdAt = message.createdAt || message.created_at || message.sent_at;
+        
+        const isOwn = senderId === currentUserId;
+        const wrapper = document.createElement('div');
         wrapper.className = isOwn ? 'flex justify-end gap-2' : 'flex justify-start gap-2';
 
-        var bubble = document.createElement('div');
+        const bubble = document.createElement('div');
         if (isOwn) {
             bubble.className = 'bg-brand-500 text-white px-4 py-2.5 rounded-2xl rounded-tr-none max-w-[75%] md:max-w-md shadow-sm';
         } else {
             bubble.className = 'bg-white text-slate-700 px-4 py-2.5 rounded-2xl rounded-tl-none max-w-[75%] md:max-w-md shadow-sm border border-slate-100';
         }
 
-        var p = document.createElement('p');
+        const p = document.createElement('p');
         p.className = 'text-sm leading-relaxed break-words';
-        p.textContent = message.content;
+        p.textContent = content;
 
-        var time = document.createElement('span');
+        const time = document.createElement('span');
         time.className = isOwn
             ? 'block text-[10px] text-brand-100 text-right mt-1'
             : 'block text-[10px] text-slate-400 mt-1';
-        time.textContent = message.sent_at || 'Ahora';
+        
+        let timeStr = 'Ahora';
+        if (createdAt) {
+            const dateVal = new Date(createdAt);
+            if (!isNaN(dateVal.getTime())) {
+                timeStr = dateVal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+                timeStr = createdAt;
+            }
+        }
+        time.textContent = timeStr;
 
         bubble.appendChild(p);
         bubble.appendChild(time);
@@ -208,20 +207,5 @@
         container.appendChild(wrapper);
         container.scrollTop = container.scrollHeight;
     }
-
-    form.addEventListener('submit', function(event) {
-        event.preventDefault();
-        var text = input.value.trim();
-        if (text === '') return;
-        if (!socket || socket.readyState !== WebSocket.OPEN) return;
-
-        socket.send(JSON.stringify({ content: text }));
-        input.value = '';
-        input.focus();
-    });
-
-    // Iniciar conexión WebSocket
-    connect();
-}());
 </script>
 {% endblock %}
