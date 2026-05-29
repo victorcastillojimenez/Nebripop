@@ -4,86 +4,123 @@
 
 {% block head %}
 <style>
+    /* Premium layout styles for Chat */
+    footer {
+        display: none !important; /* Hide footer for native app feel */
+    }
+    main {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        height: calc(100vh - 4rem) !important; /* Header height is 4rem (h-16) */
+        display: flex !important;
+        flex-direction: column !important;
+    }
     #messages-container {
         scroll-behavior: smooth;
     }
     #messages-container::-webkit-scrollbar {
-        width: 4px;
+        width: 6px;
+    }
+    #messages-container::-webkit-scrollbar-track {
+        background: transparent;
     }
     #messages-container::-webkit-scrollbar-thumb {
-        background: #e2e8f0;
+        background: #cbd5e1;
         border-radius: 999px;
     }
-    .typing-indicator span {
-        animation: blink 1.4s infinite both;
-    }
-    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes blink {
-        0%, 80%, 100% { opacity: 0.3; }
-        40% { opacity: 1; }
+    #messages-container::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-10rem)] -mx-4 sm:-mx-6 lg:-mx-8 -my-8">
+<!-- Chat Main Container -->
+<div class="flex-grow flex flex-col h-full w-full max-w-4xl mx-auto bg-slate-50 md:shadow-xl md:border-x border-slate-100 relative overflow-hidden">
 
     <!-- Cabecera del chat -->
-    <div class="glass sticky top-16 z-30 px-4 py-3 border-b border-slate-100 flex items-center gap-3">
-        <!-- Botón volver -->
-        <a href="/chat" class="p-2 -ml-2 text-slate-400 hover:text-brand-500 hover:bg-slate-50 rounded-xl transition-all" aria-label="Volver a conversaciones">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-            </svg>
-        </a>
+    <div class="glass sticky top-0 z-30 px-4 py-3.5 border-b border-slate-150 flex items-center justify-between shadow-sm">
+        <div class="flex items-center gap-3 min-w-0">
+            <!-- Botón volver -->
+            <a href="/chat" class="p-2 -ml-2 text-slate-400 hover:text-[#13C2C2] hover:bg-slate-100 rounded-xl transition-all" aria-label="Volver a conversaciones">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
 
-        <!-- Información del otro usuario -->
-        <div class="flex items-center gap-3 flex-grow min-w-0">
+            <!-- Avatar del interlocutor -->
             {% if other_user_avatar.is_some() %}
                 <img src="{{ other_user_avatar.as_ref().unwrap() }}" 
                      alt="{{ other_user_name }}" 
                      class="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100">
             {% else %}
-                <div class="w-10 h-10 rounded-full bg-brand-100 text-brand-600 font-bold flex items-center justify-center border border-brand-200 text-sm">
+                <div class="w-10 h-10 rounded-full bg-teal-100 text-teal-600 font-bold flex items-center justify-center border border-teal-200 text-sm">
                     {{ other_user_name.chars().next().unwrap_or('U') }}
                 </div>
             {% endif %}
+
             <div class="min-w-0">
                 <h2 class="font-semibold text-sm text-slate-800 truncate">{{ other_user_name }}</h2>
-                <p class="text-[10px] text-slate-400 truncate">{{ listing_title }}</p>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-[10px] text-slate-400 font-medium">En línea</span>
+                </div>
             </div>
         </div>
 
         <!-- Enlace al anuncio -->
         <a href="/listings/{{ listing_id }}" 
-           class="flex-shrink-0 text-xs text-brand-500 hover:text-brand-600 font-semibold bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-xl transition-all">
-            Ver anuncio
+           class="flex items-center gap-2 text-xs text-[#13C2C2] hover:text-[#0D8E8E] font-semibold bg-teal-50/50 hover:bg-teal-50 px-3 py-1.5 rounded-xl border border-teal-100/50 transition-all max-w-[200px] truncate"
+           title="{{ listing_title }}">
+            <span class="truncate">{{ listing_title }}</span>
+            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
         </a>
     </div>
 
     <!-- Contenedor de mensajes -->
     <div id="messages-container" 
-         class="flex-grow overflow-y-auto px-4 py-4 space-y-3"
+         class="flex-grow overflow-y-auto px-4 py-6 space-y-4 bg-slate-50"
          data-room-id="{{ conversation_id }}"
-         data-token="{{ auth_token }}"
          data-current-user-id="{{ current_user_id }}">
         
         {% for msg in messages %}
             {% if msg.is_own %}
                 <!-- Burbuja propia (derecha) -->
-                <div class="flex justify-end gap-2">
-                    <div class="bg-brand-500 text-white px-4 py-2.5 rounded-2xl rounded-tr-none max-w-[75%] md:max-w-md shadow-sm">
-                        <p class="text-sm leading-relaxed break-words">{{ msg.content }}</p>
-                        <span class="block text-[10px] text-brand-100 text-right mt-1">{{ msg.sent_at }}</span>
+                <div class="flex justify-end items-end gap-2">
+                    <div class="flex flex-col items-end max-w-[75%] md:max-w-[70%]">
+                        <div class="bg-[#13C2C2] text-white px-4 py-2.5 rounded-2xl rounded-tr-none shadow-sm text-sm leading-relaxed break-words">
+                            {{ msg.content }}
+                        </div>
+                        <span class="text-[9px] text-slate-400 mt-1 mr-1">
+                            {{ msg.sent_at }}
+                        </span>
                     </div>
                 </div>
             {% else %}
                 <!-- Burbuja recibida (izquierda) -->
-                <div class="flex justify-start gap-2">
-                    <div class="bg-white text-slate-700 px-4 py-2.5 rounded-2xl rounded-tl-none max-w-[75%] md:max-w-md shadow-sm border border-slate-100">
-                        <p class="text-sm leading-relaxed break-words">{{ msg.content }}</p>
-                        <span class="block text-[10px] text-slate-400 mt-1">{{ msg.sent_at }}</span>
+                <div class="flex justify-start items-end gap-2">
+                    <!-- Avatar mini del interlocutor -->
+                    {% if other_user_avatar.is_some() %}
+                        <img src="{{ other_user_avatar.as_ref().unwrap() }}" 
+                             alt="{{ other_user_name }}" 
+                             class="w-6 h-6 rounded-full object-cover mb-4 flex-shrink-0">
+                    {% else %}
+                        <div class="w-6 h-6 rounded-full bg-teal-50 text-teal-600 font-bold flex items-center justify-center border border-teal-100 text-[10px] mb-4 flex-shrink-0">
+                            {{ other_user_name.chars().next().unwrap_or('U') }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="flex flex-col items-start max-w-[75%] md:max-w-[70%]">
+                        <div class="bg-gray-200 text-slate-800 px-4 py-2.5 rounded-2xl rounded-tl-none shadow-sm text-sm leading-relaxed break-words">
+                            {{ msg.content }}
+                        </div>
+                        <span class="text-[9px] text-slate-400 mt-1 ml-1">
+                            {{ msg.sent_at }}
+                        </span>
                     </div>
                 </div>
             {% endif %}
@@ -91,25 +128,25 @@
     </div>
 
     <!-- Indicador de conexión WebSocket -->
-    <div id="ws-status" class="hidden px-4 py-1.5 text-center">
+    <div id="ws-status" class="hidden px-4 py-1.5 text-center bg-white border-t border-slate-100">
         <span class="text-[10px] font-medium text-amber-500 bg-amber-50 px-3 py-1 rounded-full">
-            Reconectando...
+            Reconectando al servidor...
         </span>
     </div>
 
-    <!-- Formulario de envío -->
-    <div class="border-t border-slate-100 bg-white px-4 py-3">
-        <form id="chat-form" class="flex items-center gap-2">
+    <!-- Formulario de envío fijo en la parte inferior de la columna -->
+    <div class="border-t border-slate-150 bg-white px-4 py-4 z-20">
+        <form id="chat-form" class="flex items-center gap-2" onsubmit="event.preventDefault();">
             <input type="text" 
-                   id="message-input" 
+                   id="msg-input" 
                    placeholder="Escribe un mensaje..." 
                    autocomplete="off"
                    maxlength="5000"
-                   class="flex-grow h-11 px-4 rounded-2xl border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-100 outline-none text-sm bg-slate-50 focus:bg-white text-slate-700 transition-all"
+                   class="flex-grow h-11 px-4 rounded-2xl border border-slate-200 focus:border-[#13C2C2] focus:ring-4 focus:ring-teal-100/50 outline-none text-sm bg-slate-50 focus:bg-white text-slate-700 transition-all"
                    aria-label="Mensaje">
-            <button type="submit" 
-                    id="send-button"
-                    class="flex-shrink-0 w-11 h-11 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl flex items-center justify-center shadow-md shadow-brand-500/10 hover:shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            <button type="button" 
+                    id="send-btn"
+                    class="flex-shrink-0 w-11 h-11 bg-[#13C2C2] hover:bg-[#0D8E8E] text-white rounded-2xl flex items-center justify-center shadow-md shadow-teal-500/10 hover:shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Enviar mensaje">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
@@ -122,90 +159,145 @@
 
 {% block scripts %}
 <script>
-    function getCookie(name) {
-        const nameEQ = name + "=";
-        const ca = document.cookie.split(';');
-        for(let i=0;i < ca.length;i++) {
-            let c = ca[i];
-            while (c.charAt(0)==' ') c = c.substring(1,c.length);
-            if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+    // Pasar window.CONVERSATION_ID y window.CURRENT_USER_ID al template
+    window.CONVERSATION_ID = '{{ conversation_id }}';
+    window.CURRENT_USER_ID = '{{ current_user_id }}';
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const container = document.getElementById('messages-container');
+        const input = document.getElementById('msg-input');
+        const sendBtn = document.getElementById('send-btn');
+        const wsStatus = document.getElementById('ws-status');
+
+        // Scroll automático al último mensaje al inicio
+        function scrollToBottom() {
+            container.scrollTop = container.scrollHeight;
         }
-        return null;
-    }
+        scrollToBottom();
 
-    const container = document.getElementById('messages-container');
-    const form = document.getElementById('chat-form');
-    const input = document.getElementById('message-input');
-    const sendBtn = document.getElementById('send-button');
-    const conversationId = '{{ conversation_id }}';
-    const currentUserId = '{{ current_user_id }}';
+        const conversationId = window.CONVERSATION_ID;
+        const currentUserId = window.CURRENT_USER_ID;
 
-    // Scroll to bottom on load
-    container.scrollTop = container.scrollHeight;
+        // Leer el token de sesión desde las cookies
+        const token = document.cookie
+            .split('; ')
+            .find(r => r.startsWith('session_token='))
+            ?.split('=')[1] || '';
 
-    const token = getCookie('session_token');
-    const ws = new WebSocket(
-      'ws://localhost:8080/api/chat/' + conversationId
-      + '/ws?token=' + token
-    );
-   
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      appendMessage(msg);
-    };
-   
-    sendBtn.onclick = () => {
-      if (!input.value.trim()) return;
-      ws.send(JSON.stringify({content: input.value}));
-      input.value = '';
-    };
+        // Determinar protocolo y host del WebSocket dinámicamente para soporte robusto en cualquier entorno
+        const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = window.location.host || 'localhost:8080';
+        const wsUrl = `${wsProto}//${wsHost}/api/chat/${conversationId}/ws?token=${token}`;
 
-    form.onsubmit = (event) => {
-        event.preventDefault();
-        sendBtn.click();
-    };
+        let ws;
 
-    function appendMessage(message) {
-        const senderId = message.senderId || message.sender_id;
-        const content = message.content;
-        const createdAt = message.createdAt || message.created_at || message.sent_at;
-        
-        const isOwn = senderId === currentUserId;
-        const wrapper = document.createElement('div');
-        wrapper.className = isOwn ? 'flex justify-end gap-2' : 'flex justify-start gap-2';
+        function connectWebSocket() {
+            ws = new WebSocket(wsUrl);
 
-        const bubble = document.createElement('div');
-        if (isOwn) {
-            bubble.className = 'bg-brand-500 text-white px-4 py-2.5 rounded-2xl rounded-tr-none max-w-[75%] md:max-w-md shadow-sm';
-        } else {
-            bubble.className = 'bg-white text-slate-700 px-4 py-2.5 rounded-2xl rounded-tl-none max-w-[75%] md:max-w-md shadow-sm border border-slate-100';
+            ws.onopen = () => {
+                wsStatus.classList.add('hidden');
+                console.log('WebSocket conectado con éxito');
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                appendMessage(msg.content, msg.senderId, currentUserId, msg.createdAt);
+                scrollToBottom();
+            };
+
+            ws.onclose = () => {
+                wsStatus.classList.remove('hidden');
+                console.log('Conexión perdida. Intentando reconectar en 3 segundos...');
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = (err) => {
+                console.error('Error en WebSocket:', err);
+                ws.close();
+            };
         }
 
-        const p = document.createElement('p');
-        p.className = 'text-sm leading-relaxed break-words';
-        p.textContent = content;
+        // Iniciar la conexión real del WebSocket
+        connectWebSocket();
 
-        const time = document.createElement('span');
-        time.className = isOwn
-            ? 'block text-[10px] text-brand-100 text-right mt-1'
-            : 'block text-[10px] text-slate-400 mt-1';
-        
-        let timeStr = 'Ahora';
-        if (createdAt) {
-            const dateVal = new Date(createdAt);
-            if (!isNaN(dateVal.getTime())) {
-                timeStr = dateVal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        // Enviar mensaje al hacer clic en el botón de enviar
+        sendBtn.addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                if (input.value.trim()) {
+                    ws.send(JSON.stringify({ content: input.value }));
+                    input.value = '';
+                    input.focus();
+                }
             } else {
-                timeStr = createdAt;
+                console.warn('El WebSocket no está conectado.');
             }
-        }
-        time.textContent = timeStr;
+        });
 
-        bubble.appendChild(p);
-        bubble.appendChild(time);
-        wrapper.appendChild(bubble);
-        container.appendChild(wrapper);
-        container.scrollTop = container.scrollHeight;
-    }
+        // Enviar mensaje al presionar Enter en el input de texto
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendBtn.click();
+            }
+        });
+
+        // Función para renderizar y añadir un mensaje de forma dinámica a la interfaz
+        function appendMessage(content, senderId, currentUserId, createdAt) {
+            const isOwn = senderId === currentUserId;
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = isOwn ? 'flex justify-end items-end gap-2' : 'flex justify-start items-end gap-2';
+
+            const innerWrapper = document.createElement('div');
+            innerWrapper.className = isOwn 
+                ? 'flex flex-col items-end max-w-[75%] md:max-w-[70%]' 
+                : 'flex flex-col items-start max-w-[75%] md:max-w-[70%]';
+
+            const bubble = document.createElement('div');
+            if (isOwn) {
+                bubble.className = 'bg-[#13C2C2] text-white px-4 py-2.5 rounded-2xl rounded-tr-none shadow-sm text-sm leading-relaxed break-words';
+            } else {
+                bubble.className = 'bg-gray-250 bg-gray-200 text-slate-800 px-4 py-2.5 rounded-2xl rounded-tl-none shadow-sm text-sm leading-relaxed break-words';
+            }
+            bubble.textContent = content;
+
+            const time = document.createElement('span');
+            time.className = `text-[9px] text-slate-400 mt-1 ${isOwn ? 'mr-1' : 'ml-1'}`;
+
+            let timeStr = 'Ahora';
+            if (createdAt) {
+                const dateVal = new Date(createdAt);
+                if (!isNaN(dateVal.getTime())) {
+                    timeStr = dateVal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    timeStr = createdAt;
+                }
+            }
+            time.textContent = timeStr;
+
+            innerWrapper.appendChild(bubble);
+            innerWrapper.appendChild(time);
+
+            // Si es un mensaje del interlocutor, agregamos su avatar
+            if (!isOwn) {
+                const hasAvatar = {% if other_user_avatar.is_some() %} true {% else %} false {% endif %};
+                if (hasAvatar) {
+                    const img = document.createElement('img');
+                    img.src = "{{ other_user_avatar.as_deref().unwrap_or("") }}";
+                    img.alt = "{{ other_user_name }}";
+                    img.className = 'w-6 h-6 rounded-full object-cover mb-4 flex-shrink-0';
+                    wrapper.appendChild(img);
+                } else {
+                    const avatarFallback = document.createElement('div');
+                    avatarFallback.className = 'w-6 h-6 rounded-full bg-teal-50 text-teal-600 font-bold flex items-center justify-center border border-teal-100 text-[10px] mb-4 flex-shrink-0';
+                    avatarFallback.textContent = "{{ other_user_name.chars().next().unwrap_or('U') }}";
+                    wrapper.appendChild(avatarFallback);
+                }
+            }
+
+            wrapper.appendChild(innerWrapper);
+            container.appendChild(wrapper);
+        }
+    });
 </script>
 {% endblock %}
