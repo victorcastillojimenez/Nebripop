@@ -8,7 +8,6 @@ common = { path = "../common" }
 users = { path = "../users" }
 chat = { path = "../chat" }
 listings = { path = "../listings" }
-listings = { path = "../listings" }
 ratings = { path = "../ratings" }
 favorites = { path = "../favorites" }
 geo = { path = "../geo" }
@@ -27,3 +26,5 @@ jsonwebtoken = { workspace = true }
 dotenvy = { workspace = true }
 dashmap = { workspace = true }
 tower = { workspace = true }
+askama = { workspace = true }
+askama_axum = { workspace = true }

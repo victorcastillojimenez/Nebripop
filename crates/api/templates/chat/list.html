@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Mis conversaciones | Nebripop{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Cabecera de sección -->
+    <div class="flex items-center justify-between">
+        <div class="space-y-1">
+            <h1 class="font-display font-bold text-2xl text-slate-800">Mensajes</h1>
+            <p class="text-sm text-slate-400">Tus conversaciones activas</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="bg-brand-50 text-brand-600 text-xs font-bold px-3 py-1.5 rounded-full">
+                {{ conversations.len() }} conversaciones
+            </span>
+        </div>
+    </div>
+
+    {% if conversations.is_empty() %}
+        <!-- Estado vacío -->
+        <div class="flex flex-col items-center justify-center py-16 space-y-4">
+            <div class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
+                <svg class="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                </svg>
+            </div>
+            <h2 class="font-display font-semibold text-lg text-slate-600">Sin conversaciones</h2>
+            <p class="text-sm text-slate-400 text-center max-w-xs">Cuando contactes con un vendedor o alguien te escriba, tus conversaciones aparecerán aquí.</p>
+            <a href="/" class="mt-2 inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-5 py-2.5 rounded-2xl font-semibold text-sm shadow-md hover:shadow-lg transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                Explorar anuncios
+            </a>
+        </div>
+    {% else %}
+        <!-- Lista de conversaciones -->
+        <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50">
+            {% for conv in conversations %}
+                <a href="/chat/{{ conv.id }}" 
+                   class="flex items-center gap-4 p-4 hover:bg-slate-50 transition-all duration-200 group {% if conv.unread_count > 0 %}bg-brand-50/30{% endif %}"
+                   id="conversation-{{ conv.id }}">
+                    
+                    <!-- Avatar del otro usuario -->
+                    <div class="relative flex-shrink-0">
+                        {% if conv.other_user_avatar.is_some() %}
+                            <img src="{{ conv.other_user_avatar.as_ref().unwrap() }}" 
+                                 alt="{{ conv.other_user_name }}" 
+                                 class="w-12 h-12 rounded-full object-cover ring-2 ring-slate-100 group-hover:ring-brand-200 transition-all">
+                        {% else %}
+                            <div class="w-12 h-12 rounded-full bg-brand-100 text-brand-600 font-bold flex items-center justify-center border border-brand-200 group-hover:bg-brand-500 group-hover:text-white transition-all text-base">
+                                {{ conv.other_user_name.chars().next().unwrap_or('U') }}
+                            </div>
+                        {% endif %}
+                        <!-- Indicador online (futuro) -->
+                    </div>
+
+                    <!-- Info de la conversación -->
+                    <div class="flex-grow min-w-0 space-y-0.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <h3 class="font-semibold text-sm text-slate-800 truncate group-hover:text-brand-600 transition-colors">
+                                {{ conv.other_user_name }}
+                            </h3>
+                            <span class="text-[10px] text-slate-400 flex-shrink-0 font-medium">
+                                {{ conv.updated_at }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-500 truncate font-medium">
+                            {{ conv.listing_title }}
+                        </p>
+                        <p class="text-xs text-slate-400 truncate">
+                            {% if conv.last_message.is_some() %}
+                                {{ conv.last_message.as_ref().unwrap() }}
+                            {% else %}
+                                <span class="italic">Sin mensajes aún</span>
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <!-- Badge de no leídos -->
+                    <div class="flex-shrink-0 flex items-center">
+                        {% if conv.unread_count > 0 %}
+                            <span class="bg-brand-500 text-white text-[10px] font-bold min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center shadow-sm">
+                                {{ conv.unread_count }}
+                            </span>
+                        {% else %}
+                            <svg class="w-4 h-4 text-slate-300 group-hover:text-brand-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        {% endif %}
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

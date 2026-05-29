@@ -23,7 +23,6 @@ pub struct AppState {
     pub geo_repo: GeoRepository,
     pub listing_repo: ListingRepositoryImpl,
     pub image_storage: ImageStorageImpl,
-    pub active_connections: Arc<DashMap<(Uuid, Uuid), UnboundedSender<WsMessage>>>,
 }
 
 impl AppState {
@@ -60,7 +59,6 @@ impl AppState {
             geo_repo,
             listing_repo,
             image_storage,
-            active_connections: Arc::new(DashMap::new()),
         })
     }
 }
@@ -88,6 +86,9 @@ impl axum::extract::FromRef<AppState> for MessageRepository {
 impl axum::extract::FromRef<AppState> for ActiveConnections {
     fn from_ref(state: &AppState) -> Self {
         state.active_connections.clone()
+    }
+}
+
 impl axum::extract::FromRef<AppState> for RatingRepository {
     fn from_ref(state: &AppState) -> Self {
         state.rating_repo.clone()
