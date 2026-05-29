@@ -363,6 +363,7 @@ impl ListingRepository for ListingRepositoryImpl {
         price: Option<Decimal>,
         category: Option<&str>,
         condition: Option<&PhysicalCondition>,
+        status: Option<&ListingStatus>,
         location_lat: Option<f64>,
         location_lon: Option<f64>,
         city: Option<&str>,
@@ -376,6 +377,7 @@ impl ListingRepository for ListingRepositoryImpl {
         let new_price = price.unwrap_or(existing.price);
         let new_category = category.unwrap_or(&existing.category);
         let new_condition = condition.map(|c| c.as_str()).unwrap_or_else(|| existing.condition.as_str());
+        let new_status = status.map(|s| s.as_str()).unwrap_or_else(|| existing.status.as_str());
         let new_lat = location_lat.unwrap_or(existing.location_lat);
         let new_lon = location_lon.unwrap_or(existing.location_lon);
         let new_city = city.unwrap_or(&existing.city);
@@ -383,8 +385,8 @@ impl ListingRepository for ListingRepositoryImpl {
         let row: ListingRow = sqlx::query_as::<_, ListingRow>(
             r#"UPDATE listings
                SET title = $2, description = $3, price = $4, category = $5,
-                   condition = $6, location_lat = $7, location_lon = $8,
-                   city = $9, updated_at = now()
+                   condition = $6, status = $7, location_lat = $8, location_lon = $9,
+                   city = $10, updated_at = now()
                WHERE id = $1
                RETURNING id, seller_id, title, description, price, currency,
                          category, condition, status, location_lat, location_lon,
@@ -396,6 +398,7 @@ impl ListingRepository for ListingRepositoryImpl {
         .bind(new_price)
         .bind(new_category)
         .bind(new_condition)
+        .bind(new_status)
         .bind(new_lat)
         .bind(new_lon)
         .bind(new_city)

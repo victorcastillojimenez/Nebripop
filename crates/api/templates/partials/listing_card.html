@@ -19,6 +19,20 @@
         </span>
 
         <!-- Botón de Favorito -->
+        {% if listing.status.as_str() == "sold" %}
+        <button 
+            type="button" 
+            id="btn-favorite-{{ listing.id }}" 
+            data-listing-id="{{ listing.id }}"
+            class="btn-favorite absolute top-3 right-3 z-20 w-9 h-9 bg-slate-100/80 backdrop-blur-sm text-slate-300 rounded-full flex items-center justify-center border border-slate-200/50 cursor-not-allowed pointer-events-none opacity-60"
+            aria-label="Agregar a favoritos"
+            disabled
+        >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+        </button>
+        {% else %}
         <button 
             type="button" 
             id="btn-favorite-{{ listing.id }}" 
@@ -30,6 +44,16 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
         </button>
+        {% endif %}
+
+        <!-- Label VENDIDO -->
+        {% if listing.status.as_str() == "sold" %}
+        <div class="absolute inset-0 bg-slate-950/40 flex items-center justify-center z-10 transition-all duration-300">
+            <span class="bg-rose-600/90 text-white text-xs font-black tracking-widest px-4 py-2 rounded-lg uppercase shadow-lg border border-rose-500 backdrop-blur-xs scale-100 group-hover:scale-105 transition-transform duration-300">
+                🔴 VENDIDO
+            </span>
+        </div>
+        {% endif %}
 
         <!-- Imagen principal -->
         <a href="/listings/{{ listing.id }}" class="block w-full h-full">

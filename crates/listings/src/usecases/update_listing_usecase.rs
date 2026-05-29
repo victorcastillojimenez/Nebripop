@@ -41,9 +41,16 @@ pub async fn update_listing_usecase(
         return Err(ListingError::NotOwner(listing_id));
     }
 
-    // 3. Verify listing is active (cannot edit sold or deleted)
-    if existing.status != ListingStatus::Active {
+    // 3. Verify listing status logic
+    if existing.status == ListingStatus::Deleted {
         return Err(ListingError::AlreadySold(listing_id));
+    }
+    if existing.status == ListingStatus::Sold {
+        // We only allow transition from Sold to Active
+        match dto.status {
+            Some(ListingStatus::Active) => {}
+            _ => return Err(ListingError::AlreadySold(listing_id)),
+        }
     }
 
     // 4. Validate price if provided
@@ -85,6 +92,7 @@ pub async fn update_listing_usecase(
             dto.price,
             dto.category.as_deref(),
             dto.condition.as_ref(),
+            dto.status.as_ref(),
             dto.location_lat,
             dto.location_lon,
             dto.city.as_deref(),

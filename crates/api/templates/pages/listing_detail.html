@@ -4,6 +4,7 @@
 {% block title %}{{ listing.title }} - Nebripop{% endblock %}
 
 {% block content %}
+{% let is_seller = current_user.is_some() && current_user.as_ref().unwrap().id == listing.seller_id %}
 <div class="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8 font-sans">
     
     <!-- Enlace de retorno -->
@@ -130,6 +131,17 @@
             <!-- Caja de Acciones de Compra / Contacto -->
             <div class="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4">
                 
+                {% if listing.status.as_str() == "sold" %}
+                <!-- Banner de Vendido -->
+                <div class="flex items-center gap-3 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-700">
+                    <span class="text-xl">⚠️</span>
+                    <div class="flex-grow">
+                        <h5 class="font-bold text-xs uppercase tracking-wider">No disponible</h5>
+                        <p class="text-xs text-rose-600/90 font-medium">Este artículo ya ha sido vendido.</p>
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Botón Contactar Vendedor (Chat) -->
                 <a 
                     href="/chat?listing={{ listing.id }}&recipient={{ seller.id }}" 
@@ -142,23 +154,57 @@
                     <span>Contactar con vendedor</span>
                 </a>
 
+                {% if listing.status.as_str() == "active" && !is_seller %}
                 <!-- Botón Comprar / Pago Seguro (Stripe) -->
                 <button 
                     type="button" 
                     id="btn-buy-stripe"
                     data-listing-id="{{ listing.id }}"
-                    class="w-full py-3.5 bg-stripe-500 hover:bg-[#5b52e0] active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-stripe-500/10"
+                    class="w-full py-3.5 bg-stripe-500 hover:bg-[#5b52e0] active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-stripe-500/10 text-sm"
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                     </svg>
                     <span>Comprar con Stripe</span>
                 </button>
+                {% endif %}
 
+                {% if is_seller %}
+                    {% if listing.status.as_str() == "active" %}
+                    <!-- Botón Marcar como vendido -->
+                    <button 
+                        type="button" 
+                        id="btn-toggle-status"
+                        data-action="sold"
+                        class="w-full py-3.5 bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-rose-600/10 text-sm"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Marcar como vendido</span>
+                    </button>
+                    {% else if listing.status.as_str() == "sold" %}
+                    <!-- Botón Volver a poner a la venta -->
+                    <button 
+                        type="button" 
+                        id="btn-toggle-status"
+                        data-action="active"
+                        class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-600/10 text-sm"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.21" />
+                        </svg>
+                        <span>Volver a poner a la venta</span>
+                    </button>
+                    {% endif %}
+                {% endif %}
+
+                {% if listing.status.as_str() == "active" && !is_seller %}
                 <div class="text-[11px] text-slate-400 text-center flex items-center justify-center gap-1.5">
                     <span>🛡️</span>
                     <span>Pago 100% seguro protegido por Stripe</span>
                 </div>
+                {% endif %}
             </div>
 
             <!-- Caja de Seguridad de la Universidad -->
@@ -214,6 +260,40 @@
                     }
                 } catch (err) {
                     window.showToast("Redirigiendo a pasarela segura de Stripe (Simulado)", "success");
+                }
+            });
+        }
+
+        // Gestión del cambio de estado (Marcar como vendido / Volver a poner a la venta)
+        const toggleStatusBtn = document.getElementById("btn-toggle-status");
+        if (toggleStatusBtn) {
+            toggleStatusBtn.addEventListener("click", async () => {
+                const targetStatus = toggleStatusBtn.getAttribute("data-action");
+                const listingId = "{{ listing.id }}";
+                
+                window.showToast("Actualizando estado del anuncio...", "info");
+                
+                try {
+                    const token = localStorage.getItem("token");
+                    const res = await fetch(`/api/listings/${listingId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': token ? `Bearer ${token}` : '',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ status: targetStatus })
+                    });
+                    
+                    if (res.ok) {
+                        window.showToast("Estado actualizado correctamente", "success");
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        const errData = await res.json().catch(() => ({}));
+                        const errMsg = errData.message || "Error al actualizar el estado";
+                        window.showToast(errMsg, "error");
+                    }
+                } catch (err) {
+                    window.showToast("Error de conexión", "error");
                 }
             });
         }
