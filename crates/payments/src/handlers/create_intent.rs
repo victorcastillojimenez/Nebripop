@@ -45,7 +45,7 @@ fn map_payment_error(err: PaymentError) -> AppError {
             AppError::Forbidden("No tienes permiso para acceder a este pago".to_string())
         }
         PaymentError::SelfPurchase => {
-            AppError::BadRequest("No puedes comprar tu propio anuncio".to_string())
+            AppError::UnprocessableEntity("No puedes comprar tu propio anuncio".to_string())
         }
         PaymentError::ListingNotAvailable(_) => {
             AppError::BadRequest("El anuncio no está disponible para la compra".to_string())

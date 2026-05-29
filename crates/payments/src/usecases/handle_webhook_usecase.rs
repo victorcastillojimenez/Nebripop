@@ -101,6 +101,7 @@ mod tests {
             _currency: &str,
             _listing_id: Uuid,
             _buyer_id: Uuid,
+            _idempotency_key: Uuid,
         ) -> Result<(String, String), PaymentError> {
             unreachable!()
         }
@@ -120,6 +121,7 @@ mod tests {
             _currency: &str,
             _listing_id: Uuid,
             _buyer_id: Uuid,
+            _idempotency_key: Uuid,
         ) -> Result<(String, String), PaymentError> {
             unreachable!()
         }
@@ -215,6 +217,7 @@ mod tests {
             _currency: &str,
             _listing_id: Uuid,
             _buyer_id: Uuid,
+            _idempotency_key: Uuid,
         ) -> Result<(String, String), PaymentError> {
             unreachable!()
         }

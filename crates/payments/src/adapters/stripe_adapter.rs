@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
+use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
 use crate::errors::PaymentError;
@@ -38,6 +39,7 @@ impl StripePort for StripeAdapter {
         currency: &str,
         listing_id: Uuid,
         buyer_id: Uuid,
+        idempotency_key: Uuid,
     ) -> Result<(String, String), PaymentError> {
         let metadata = serde_json::json!({
             "listing_id": listing_id.to_string(),
@@ -58,6 +60,7 @@ impl StripePort for StripeAdapter {
             .post("https://api.stripe.com/v1/payment_intents")
             .header("Authorization", self.auth_header_value())
             .header("Content-Type", "application/json")
+            .header("Idempotency-Key", idempotency_key.to_string())
             .json(&params)
             .send()
             .await
@@ -127,8 +130,10 @@ impl StripePort for StripeAdapter {
         mac.update(signed_payload.as_bytes());
         let computed = hex::encode(mac.finalize().into_bytes());
 
-        // Constant-time comparison
-        if computed != *signature {
+        // Constant-time comparison to prevent timing attacks
+        if computed.as_bytes().ct_eq(signature.as_bytes()).into() {
+            // Signature is valid, proceed
+        } else {
             tracing::error!("Firma de webhook de Stripe inválida");
             return Err(PaymentError::InvalidSignature);
         }

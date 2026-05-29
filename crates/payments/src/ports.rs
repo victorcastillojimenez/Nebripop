@@ -31,12 +31,15 @@ pub trait PaymentRepository: Send + Sync {
 #[async_trait]
 pub trait StripePort: Send + Sync {
     /// Create a Stripe PaymentIntent and return (intent_id, client_secret).
+    /// The `idempotency_key` is used as the Idempotency-Key header
+    /// to prevent duplicate charges on network retries.
     async fn create_payment_intent(
         &self,
         amount_cents: i64,
         currency: &str,
         listing_id: Uuid,
         buyer_id: Uuid,
+        idempotency_key: Uuid,
     ) -> Result<(String, String), PaymentError>;
 
     /// Verify the HMAC-SHA256 signature of a Stripe webhook payload.

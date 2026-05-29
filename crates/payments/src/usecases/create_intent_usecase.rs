@@ -24,19 +24,24 @@ pub async fn create_intent_usecase(
         return Err(PaymentError::SelfPurchase);
     }
 
-    // 3. Create the PaymentIntent in Stripe
+    // 3. Generate payment_id BEFORE Stripe call to use as Idempotency-Key
+    //    This prevents duplicate charges on network retries.
+    let payment_id = Uuid::new_v4();
+
+    // 4. Create the PaymentIntent in Stripe with idempotency key
     let (intent_id, client_secret) = stripe_port
         .create_payment_intent(
             listing.amount_cents,
             &dto.currency,
             dto.listing_id,
             buyer_id,
+            payment_id,
         )
         .await?;
 
-    // 4. Persist the payment with status Pending
+    // 5. Persist the payment with status Pending
     let payment = Payment {
-        id: Uuid::new_v4(),
+        id: payment_id,
         listing_id: dto.listing_id,
         buyer_id,
         seller_id: listing.seller_id,
@@ -134,6 +139,7 @@ mod tests {
             _currency: &str,
             _listing_id: Uuid,
             _buyer_id: Uuid,
+            _idempotency_key: Uuid,
         ) -> Result<(String, String), PaymentError> {
             Ok(("pi_mock".to_string(), "cs_mock".to_string()))
         }
