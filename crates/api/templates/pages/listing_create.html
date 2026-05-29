@@ -199,6 +199,8 @@
 
 {% block scripts %}
 <script>
+    window.SESSION_TOKEN = '{{ session_token }}';
+
     document.addEventListener("DOMContentLoaded", () => {
         const form = document.getElementById("form-create-listing");
         const titleInput = document.getElementById("input-listing-title");
@@ -273,7 +275,8 @@
         });
 
         // Validación en tiempo real y Envío del Formulario
-        form.addEventListener("submit", (e) => {
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
             let isValid = true;
 
             // Validar título
@@ -301,10 +304,83 @@
             }
 
             if (!isValid) {
-                e.preventDefault();
                 window.showToast("Corrige los errores del formulario", "error");
-            } else {
-                window.showToast("Subiendo tu anuncio...", "info");
+                return;
+            }
+
+            const token = window.SESSION_TOKEN;
+            if (!token) {
+                window.showToast("Inicia sesión para poder publicar", "warning");
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1500);
+                return;
+            }
+
+            window.showToast("Subiendo tu anuncio...", "info");
+
+            const formData = new FormData(e.target);
+
+            try {
+                // Paso 1: crear el anuncio
+                const res = await fetch('/api/listings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({
+                        title: formData.get('title'),
+                        description: formData.get('description'),
+                        price: parseFloat(formData.get('price')),
+                        category: formData.get('category'),
+                        condition: formData.get('condition'),
+                        city: formData.get('city'),
+                        locationLat: 40.4168,
+                        locationLon: -3.7038
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    window.showToast(err.message || 'Error al crear anuncio', 'error');
+                    return;
+                }
+
+                const listing = await res.json();
+
+                // Paso 2: subir imagen si existe
+                const imageFile = formData.get('image');
+                if (imageFile && imageFile.size > 0) {
+                    window.showToast("Subiendo imagen del anuncio...", "info");
+                    const imageFormData = new FormData();
+                    imageFormData.append('image', imageFile);
+
+                    const imgRes = await fetch('/api/listings/' + listing.id + '/images', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: imageFormData
+                    });
+
+                    if (!imgRes.ok) {
+                        window.showToast("Anuncio creado, pero no se pudo subir la imagen", "warning");
+                        setTimeout(() => {
+                            window.location.href = '/listings';
+                        }, 2000);
+                        return;
+                    }
+                }
+
+                window.showToast("¡Anuncio publicado correctamente!", "success");
+                setTimeout(() => {
+                    window.location.href = '/listings';
+                }, 1500);
+
+            } catch (err) {
+                console.error(err);
+                window.showToast("Error de conexión al crear anuncio", "error");
             }
         });
     });

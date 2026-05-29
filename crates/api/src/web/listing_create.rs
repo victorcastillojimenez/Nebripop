@@ -1,6 +1,7 @@
 use askama_axum::IntoResponse;
 use askama::Template;
 use axum::{extract::{State, Query, Form}, response::Html};
+use axum_extra::extract::CookieJar;
 use crate::app_state::AppState;
 use users::dtos::UserDto;
 use crate::web::filters;
@@ -31,11 +32,13 @@ pub struct ListingCreateTemplate {
     pub flash_success: Option<String>,
     pub flash_error: Option<String>,
     pub query_param: Option<String>,
+    pub session_token: String,
 }
 
 pub async fn listing_create_handler(
     State(state): State<AppState>,
     auth: Option<AuthUser>,
+    jar: CookieJar,
     Query(query): Query<ListingCreateQuery>,
 ) -> impl IntoResponse {
     let auth_user = match auth {
@@ -50,6 +53,11 @@ pub async fn listing_create_handler(
         return axum::response::Redirect::to("/login?next=/listings/create").into_response();
     }
 
+    let session_token = jar
+        .get("session_token")
+        .map(|c| c.value().to_string())
+        .unwrap_or_default();
+
     let flash_error = if query.error.is_some() {
         Some("Ha ocurrido un error al crear el anuncio. Por favor, comprueba los campos e inténtalo de nuevo.".to_string())
     } else {
@@ -61,6 +69,7 @@ pub async fn listing_create_handler(
         flash_success: None,
         flash_error,
         query_param: query.error,
+        session_token,
     };
     Html(template.render().unwrap()).into_response()
 }
