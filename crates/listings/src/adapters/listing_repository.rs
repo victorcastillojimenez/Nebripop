@@ -44,10 +44,10 @@ impl TryFrom<ListingRow> for Listing {
     type Error = ListingError;
 
     fn try_from(row: ListingRow) -> Result<Self, Self::Error> {
-        let condition = PhysicalCondition::from_str(&row.condition)
+        let condition = PhysicalCondition::from_condition_str(&row.condition)
             .ok_or_else(|| ListingError::InvalidInput(format!("Unknown condition: {}", row.condition)))?;
 
-        let status = ListingStatus::from_str(&row.status)
+        let status = ListingStatus::from_status_str(&row.status)
             .ok_or_else(|| ListingError::InvalidInput(format!("Unknown status: {}", row.status)))?;
 
         Ok(Self {

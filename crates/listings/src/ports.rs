@@ -7,6 +7,7 @@ use crate::models::{Listing, ListingImage, PhysicalCondition};
 
 /// Primary port (repository interface) for listing persistence.
 /// Defined in the domain so usecases depend on this trait, not on infrastructure.
+#[allow(clippy::too_many_arguments)]
 #[async_trait]
 pub trait ListingRepository: Send + Sync {
     /// Find a listing by its ID. Returns None if not found.
