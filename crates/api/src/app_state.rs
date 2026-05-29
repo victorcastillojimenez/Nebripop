@@ -19,6 +19,7 @@ use users::adapters::user_repository::UserRepository;
 pub struct AppState {
     pub pool: PgPool,
     pub jwt_secret: String,
+    pub stripe_publishable_key: String,
     pub stripe_secret_key: String,
     pub stripe_webhook_secret: String,
     pub user_repo: UserRepository,
@@ -48,6 +49,9 @@ impl AppState {
         let jwt_secret = std::env::var("JWT_SECRET")
             .map_err(|_| "JWT_SECRET must be set".to_string())?;
 
+        let stripe_publishable_key = std::env::var("STRIPE_PUBLISHABLE_KEY")
+            .map_err(|_| "STRIPE_PUBLISHABLE_KEY must be set".to_string())?;
+
         let stripe_secret_key = std::env::var("STRIPE_SECRET_KEY")
             .map_err(|_| "STRIPE_SECRET_KEY must be set".to_string())?;
 
@@ -76,6 +80,7 @@ impl AppState {
         Ok(Self {
             pool,
             jwt_secret,
+            stripe_publishable_key,
             stripe_secret_key,
             stripe_webhook_secret,
             user_repo,
