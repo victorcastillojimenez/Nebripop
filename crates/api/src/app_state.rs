@@ -46,6 +46,14 @@ impl AppState {
             .await
             .map_err(|e| format!("Failed to connect to database: {}", e))?;
 
+        // Run database migrations on startup
+        tracing::info!("Running database migrations...");
+        sqlx::migrate!("../../migrations")
+            .run(&pool)
+            .await
+            .map_err(|e| format!("Database migration failed: {}", e))?;
+        tracing::info!("Database migrations applied successfully");
+
         let jwt_secret = std::env::var("JWT_SECRET")
             .map_err(|_| "JWT_SECRET must be set".to_string())?;
 
