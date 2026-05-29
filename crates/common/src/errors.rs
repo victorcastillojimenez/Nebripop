@@ -32,6 +32,9 @@ pub enum AppError {
     #[error("Petición incorrecta: {0}")]
     BadRequest(String),
 
+    #[error("Entidad no procesable: {0}")]
+    UnprocessableEntity(String),
+
     #[error("Error interno del servidor")]
     Internal(String),
 }
@@ -45,6 +48,9 @@ impl IntoResponse for AppError {
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, "NOT_FOUND", msg.clone()),
             AppError::Conflict(msg) => (StatusCode::CONFLICT, "CONFLICT", msg.clone()),
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, "BAD_REQUEST", msg.clone()),
+            AppError::UnprocessableEntity(msg) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, "UNPROCESSABLE_ENTITY", msg.clone())
+            }
             AppError::Internal(msg) => {
                 tracing::error!("Internal server error: {}", msg);
                 (
