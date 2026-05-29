@@ -53,7 +53,6 @@ pub struct UpdateListingDto {
     pub price: Option<Decimal>,
     pub category: Option<String>,
     pub condition: Option<PhysicalCondition>,
-    pub status: Option<ListingStatus>,
     pub location_lat: Option<f64>,
     pub location_lon: Option<f64>,
     pub city: Option<String>,

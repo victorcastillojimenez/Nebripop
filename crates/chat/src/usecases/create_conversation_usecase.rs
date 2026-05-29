@@ -30,6 +30,23 @@ async fn verify_listing_exists(
 ) -> Result<Uuid, ChatError> {
     conversation_port.verify_listing_seller(listing_id).await
 }
+
+/// Check no duplicate conversation exists for this listing and buyer.
+async fn ensure_no_duplicate(
+    conversation_port: &impl ConversationPort,
+    listing_id: Uuid,
+    buyer_id: Uuid,
+) -> Result<(), ChatError> {
+    let existing = conversation_port
+        .find_by_listing_and_buyer(listing_id, buyer_id)
+        .await?;
+
+    if existing.is_some() {
+        return Err(ChatError::ConversationAlreadyExists(buyer_id, listing_id));
+    }
+    Ok(())
+}
+
 /// Create the conversation and its first message, then update last_message.
 async fn create_conversation_with_first_message(
     conversation_port: &impl ConversationPort,
@@ -102,15 +119,7 @@ pub async fn execute(
     let seller_id = verify_listing_exists(conversation_port, dto.listing_id).await?;
 
     ensure_not_self_chat(buyer_id, seller_id)?;
-
-    // If conversation already exists for this listing + buyer, return it instead of creating a new one
-    let existing = conversation_port
-        .find_by_listing_and_buyer(dto.listing_id, buyer_id)
-        .await?;
-
-    if let Some(existing_conv) = existing {
-        return fetch_enriched_response(conversation_port, existing_conv.id, buyer_id).await;
-    }
+    ensure_no_duplicate(conversation_port, dto.listing_id, buyer_id).await?;
 
     let conversation_id = create_conversation_with_first_message(
         conversation_port,
