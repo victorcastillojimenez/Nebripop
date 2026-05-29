@@ -5,6 +5,7 @@ use crate::app_state::AppState;
 use users::dtos::UserDto;
 use chat::dtos::{ConversationResponseDto};
 use uuid::Uuid;
+use crate::web::filters;
 
 #[derive(Template)]
 #[template(path = "chat/list.html")]

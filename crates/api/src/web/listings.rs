@@ -4,6 +4,7 @@ use axum::{extract::State, response::Html};
 use crate::app_state::AppState;
 use users::dtos::UserDto;
 use listings::dtos::ListingSummaryDto;
+use crate::web::filters;
 
 #[derive(Template)]
 #[template(path = "pages/listings.html")]

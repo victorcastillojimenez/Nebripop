@@ -30,3 +30,5 @@ dashmap = { workspace = true }
 tower = { workspace = true }
 askama = { workspace = true }
 askama_axum = { workspace = true }
+rust_decimal = { workspace = true }
+

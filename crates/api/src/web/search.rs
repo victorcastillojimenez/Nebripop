@@ -5,6 +5,7 @@ use crate::app_state::AppState;
 use users::dtos::UserDto;
 use listings::dtos::ListingSummaryDto;
 use serde::Deserialize;
+use crate::web::filters;
 
 #[derive(Deserialize)]
 pub struct SearchQuery {

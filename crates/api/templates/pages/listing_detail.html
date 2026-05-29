@@ -22,9 +22,9 @@
         <!-- Galería de Imágenes (Columna Izquierda 2/3 en Desktop) -->
         <div class="lg:col-span-2 space-y-6">
             <div class="relative bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm aspect-video sm:aspect-square md:aspect-video flex items-center justify-center">
-                {% if listing.image_url.is_some() %}
+                {% if !listing.images.is_empty() %}
                     <img 
-                        src="{{ listing.image_url.as_ref().unwrap() }}" 
+                        src="{{ listing.images.first().unwrap().image_url }}" 
                         alt="{{ listing.title }}"
                         class="w-full h-full object-cover"
                         id="img-main-view"
@@ -44,7 +44,7 @@
                     class="btn-favorite absolute top-6 right-6 w-12 h-12 bg-white/90 backdrop-blur-sm hover:bg-white text-slate-400 hover:text-rose-500 rounded-full flex items-center justify-center shadow-lg border border-slate-100 active:scale-95 transition-all duration-200"
                     aria-label="Agregar a favoritos"
                 >
-                    <svg class="w-6 h-6 transition-transform hover:scale-110" fill="{% if listing.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6 transition-transform hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                     </svg>
                 </button>
@@ -66,7 +66,7 @@
                 </h1>
 
                 <div class="text-3xl font-display font-black text-brand-500">
-                    {{ "%.2f"|format(listing.price) }} €
+                    {{ listing.price|format_decimal("%.2f") }} €
                 </div>
 
                 <hr class="border-slate-100">

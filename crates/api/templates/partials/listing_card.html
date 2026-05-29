@@ -26,16 +26,16 @@
             class="btn-favorite absolute top-3 right-3 z-10 w-9 h-9 bg-white/90 backdrop-blur-sm hover:bg-white text-slate-400 hover:text-rose-500 rounded-full flex items-center justify-center shadow-sm border border-slate-100 active:scale-95 transition-all duration-200"
             aria-label="Agregar a favoritos"
         >
-            <svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="{% if listing.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24" class="{% if listing.is_favorite %}text-rose-500{% endif %}">
+            <svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
         </button>
 
         <!-- Imagen principal -->
         <a href="/listings/{{ listing.id }}" class="block w-full h-full">
-            {% if listing.image_url.is_some() %}
+            {% if listing.first_image_url.is_some() %}
                 <img 
-                    src="{{ listing.image_url.as_ref().unwrap() }}" 
+                    src="{{ listing.first_image_url.as_ref().unwrap() }}" 
                     alt="{{ listing.title }}"
                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
@@ -54,17 +54,9 @@
     <div class="p-4 flex flex-col flex-grow">
         <!-- Precio -->
         <div class="flex items-baseline justify-between mb-1.5">
-            <span class="text-xl font-display font-extrabold text-slate-800">{{ "%.2f"|format(listing.price) }}€</span>
+            <span class="text-xl font-display font-extrabold text-slate-800">{{ listing.price|format_decimal("%.2f") }}€</span>
             <span class="text-[11px] font-semibold text-slate-400 capitalize px-2 py-0.5 bg-slate-100 rounded-md">
-                {% if listing.condition == "nuevo" %}
-                    Nuevo
-                {% else if listing.condition == "como_nuevo" %}
-                    Como nuevo
-                {% else if listing.condition == "bueno" %}
-                    Bueno
-                {% else %}
-                    Usado
-                {% endif %}
+                {{ listing.condition }}
             </span>
         </div>
 

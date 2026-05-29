@@ -35,6 +35,17 @@ pub enum PhysicalCondition {
     Used,
 }
 
+impl std::fmt::Display for PhysicalCondition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PhysicalCondition::New => write!(f, "Nuevo"),
+            PhysicalCondition::LikeNew => write!(f, "Como nuevo"),
+            PhysicalCondition::Used => write!(f, "Usado"),
+        }
+    }
+}
+
+
 impl PhysicalCondition {
     pub fn as_str(&self) -> &'static str {
         match self {

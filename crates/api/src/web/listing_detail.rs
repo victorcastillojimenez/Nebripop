@@ -5,6 +5,8 @@ use crate::app_state::AppState;
 use users::dtos::{UserDto, PublicProfileDto};
 use listings::dtos::ListingResponseDto;
 use uuid::Uuid;
+use std::str::FromStr;
+use crate::web::filters;
 
 #[derive(Template)]
 #[template(path = "pages/listing_detail.html")]
@@ -23,15 +25,20 @@ pub async fn listing_detail_handler(
 ) -> impl IntoResponse {
     let mock_listing = ListingResponseDto {
         id,
+        seller_id: Uuid::new_v4(),
         title: "Producto de ejemplo".to_string(),
         description: "Esta es una descripción de ejemplo para un producto en Nebripop.".to_string(),
-        price: 99.99,
+        price: rust_decimal::Decimal::from_str("99.99").unwrap(),
+        currency: "EUR".to_string(),
         category: "tecnologia".to_string(),
-        condition: "nuevo".to_string(),
-        image_url: None,
-        seller_id: Uuid::new_v4(),
+        condition: listings::models::PhysicalCondition::Used,
+        status: listings::models::ListingStatus::Active,
+        location_lat: 40.4168,
+        location_lon: -3.7038,
+        city: "Madrid".to_string(),
+        images: vec![],
         created_at: chrono::Utc::now(),
-        is_favorite: false,
+        updated_at: chrono::Utc::now(),
     };
 
     let mock_seller = PublicProfileDto {
@@ -53,3 +60,4 @@ pub async fn listing_detail_handler(
     };
     Html(template.render().unwrap())
 }
+

@@ -6,6 +6,7 @@ use users::dtos::{UserDto, PublicProfileDto};
 use listings::dtos::ListingSummaryDto;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use crate::web::filters;
 
 #[derive(Template)]
 #[template(path = "users/profile.html")]
