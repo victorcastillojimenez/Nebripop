@@ -1,11 +1,12 @@
-use askama_axum::IntoResponse;
 use askama::Template;
-use axum::{extract::{State, Path}, response::Html};
+use axum::{extract::{State, Path}, response::Html, http::StatusCode};
 use crate::app_state::AppState;
 use users::dtos::{UserDto, PublicProfileDto};
+use users::ports::UserRepositoryPort;
 use listings::dtos::ListingResponseDto;
+use listings::ports::ListingRepository;
 use uuid::Uuid;
-use std::str::FromStr;
+use rust_decimal::prelude::ToPrimitive;
 use crate::web::filters;
 
 #[derive(Template)]
@@ -20,44 +21,47 @@ pub struct ListingDetailTemplate {
 }
 
 pub async fn listing_detail_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> impl IntoResponse {
-    let mock_listing = ListingResponseDto {
-        id,
-        seller_id: Uuid::new_v4(),
-        title: "Producto de ejemplo".to_string(),
-        description: "Esta es una descripción de ejemplo para un producto en Nebripop.".to_string(),
-        price: rust_decimal::Decimal::from_str("99.99").unwrap(),
-        currency: "EUR".to_string(),
-        category: "tecnologia".to_string(),
-        condition: listings::models::PhysicalCondition::Used,
-        status: listings::models::ListingStatus::Active,
-        location_lat: 40.4168,
-        location_lon: -3.7038,
-        city: "Madrid".to_string(),
-        images: vec![],
-        created_at: chrono::Utc::now(),
-        updated_at: chrono::Utc::now(),
-    };
+) -> Result<Html<String>, StatusCode> {
+    let listing = state.listing_repo.find_by_id(id).await
+        .map_err(|e| {
+            tracing::error!("Error fetching listing: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
-    let mock_seller = PublicProfileDto {
-        id: mock_listing.seller_id,
-        display_name: "Vendedor Pro".to_string(),
-        avatar_url: None,
-        rating_avg: 4.8,
-        total_ratings: 12,
-        created_at: chrono::Utc::now(),
+    let seller = state.user_repo.find_by_id(listing.seller_id).await
+        .map_err(|e| {
+            tracing::error!("Error fetching seller: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let listing_dto = ListingResponseDto::from_listing(listing);
+    let seller_dto = PublicProfileDto {
+        id: seller.id,
+        display_name: seller.display_name,
+        avatar_url: seller.avatar_url,
+        rating_avg: seller.rating_avg.and_then(|d| d.to_f64()).unwrap_or(0.0),
+        total_ratings: seller.total_ratings,
+        created_at: seller.created_at,
     };
 
     let template = ListingDetailTemplate {
         current_user: None,
         flash_success: None,
         flash_error: None,
-        listing: mock_listing,
-        seller: mock_seller,
+        listing: listing_dto,
+        seller: seller_dto,
         query_param: None,
     };
-    Html(template.render().unwrap())
+
+    template.render()
+        .map(Html)
+        .map_err(|e| {
+            tracing::error!("Failed to render template: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })
 }
 

@@ -1,11 +1,13 @@
-use askama_axum::IntoResponse;
 use askama::Template;
-use axum::{extract::{State, Path}, response::Html};
+use axum::{extract::{State, Path}, response::Html, http::StatusCode};
 use crate::app_state::AppState;
 use users::dtos::{UserDto, PublicProfileDto};
+use users::ports::UserRepositoryPort;
 use listings::dtos::ListingSummaryDto;
+use listings::ports::ListingRepository;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use rust_decimal::prelude::ToPrimitive;
 use crate::web::filters;
 
 #[derive(Template)]
@@ -29,27 +31,51 @@ pub struct MockRating {
 }
 
 pub async fn profile_handler(
-    State(_state): State<AppState>,
-    Path(_id): Path<Uuid>,
-) -> impl IntoResponse {
-    let mock_profile = PublicProfileDto {
-        id: _id,
-        display_name: "Usuario Nebrija".to_string(),
-        avatar_url: None,
-        rating_avg: 5.0,
-        total_ratings: 0,
-        created_at: Utc::now(),
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Html<String>, StatusCode> {
+    let user = state.user_repo.find_by_id(id).await
+        .map_err(|e| {
+            tracing::error!("Error fetching user profile: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let user_dto = PublicProfileDto {
+        id: user.id,
+        display_name: user.display_name,
+        avatar_url: user.avatar_url,
+        rating_avg: user.rating_avg.and_then(|d| d.to_f64()).unwrap_or(0.0),
+        total_ratings: user.total_ratings,
+        created_at: user.created_at,
     };
+
+    let (listings, _) = state.listing_repo.find_by_seller(id, 0, 50).await
+        .map_err(|e| {
+            tracing::error!("Error fetching listings for user: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    let user_listings = listings
+        .iter()
+        .map(ListingSummaryDto::from_listing)
+        .collect();
 
     let template = ProfileTemplate {
         current_user: None,
         flash_success: None,
         flash_error: None,
-        user: mock_profile,
-        user_listings: vec![],
+        user: user_dto,
+        user_listings,
         is_own_profile: false,
         ratings: vec![],
         query_param: None,
     };
-    Html(template.render().unwrap())
+
+    template.render()
+        .map(Html)
+        .map_err(|e| {
+            tracing::error!("Failed to render profile template: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })
 }

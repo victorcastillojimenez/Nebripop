@@ -4,8 +4,8 @@ use axum::{extract::State, response::Html};
 use crate::app_state::AppState;
 use users::dtos::UserDto;
 use listings::dtos::ListingSummaryDto;
+use listings::ports::ListingRepository;
 use crate::web::filters;
-
 
 #[derive(Template)]
 #[template(path = "pages/home.html")]
@@ -18,13 +18,24 @@ pub struct HomeTemplate {
 }
 
 pub async fn home_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
 ) -> impl IntoResponse {
+    let recent_listings = match state.listing_repo.find_all_paginated(0, 12, None).await {
+        Ok((listings, _)) => listings
+            .iter()
+            .map(ListingSummaryDto::from_listing)
+            .collect(),
+        Err(e) => {
+            tracing::error!("Error fetching recent listings from DB: {}", e);
+            vec![]
+        }
+    };
+
     let template = HomeTemplate {
         current_user: None, 
         flash_success: None,
         flash_error: None,
-        recent_listings: vec![],
+        recent_listings,
         query_param: None,
     };
     Html(template.render().unwrap())
