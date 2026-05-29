@@ -22,6 +22,8 @@ pub struct ImageStorageImpl {
     use_cloudinary: bool,
     /// Cloudinary URL (parsed from env).
     cloudinary_url: Option<String>,
+    /// Cloudinary upload preset (from env or default).
+    upload_preset: String,
     /// Base directory for local file storage.
     local_upload_dir: String,
     /// Base URL path for serving local files.
@@ -38,10 +40,13 @@ impl ImageStorageImpl {
     pub fn new() -> Self {
         let cloudinary_url = std::env::var("CLOUDINARY_URL").ok();
         let use_cloudinary = cloudinary_url.is_some();
+        let upload_preset = std::env::var("CLOUDINARY_UPLOAD_PRESET")
+            .unwrap_or_else(|_| "nebripop_upload".to_string());
 
         Self {
             use_cloudinary,
             cloudinary_url,
+            upload_preset,
             local_upload_dir: "static/uploads".to_string(),
             local_serve_path: "/static/uploads".to_string(),
         }
@@ -156,7 +161,8 @@ impl ImageStorageImpl {
         // upload_preset
         body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
         body.extend_from_slice(b"Content-Disposition: form-data; name=\"upload_preset\"\r\n\r\n");
-        body.extend_from_slice(b"ml_default\r\n");
+        body.extend_from_slice(self.upload_preset.as_bytes());
+        body.extend_from_slice(b"\r\n");
 
         // signature
         let sig_string = format!("public_id={public_id}&timestamp={timestamp}{api_secret}");
@@ -411,6 +417,7 @@ mod tests {
         let storage = ImageStorageImpl {
             use_cloudinary: true,
             cloudinary_url: Some("cloudinary://k:s@c".to_string()),
+            upload_preset: "test_preset".to_string(),
             local_upload_dir: "static/uploads".to_string(),
             local_serve_path: "/static/uploads".to_string(),
         };
@@ -424,6 +431,7 @@ mod tests {
         let storage = ImageStorageImpl {
             use_cloudinary: false,
             cloudinary_url: None,
+            upload_preset: "test_preset".to_string(),
             local_upload_dir: "static/uploads".to_string(),
             local_serve_path: "/static/uploads".to_string(),
         };
