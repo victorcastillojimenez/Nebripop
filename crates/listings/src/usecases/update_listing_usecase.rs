@@ -1,13 +1,31 @@
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
 use crate::dtos::{ListingResponseDto, UpdateListingDto};
 use crate::errors::ListingError;
-use crate::models::ListingStatus;
+use crate::models::{Listing, ListingStatus};
 use crate::ports::ListingRepository;
 
+use search::models::{Geo, ListingDoc};
+use search::ports::SearchEngine;
+
+/// Update an existing listing and re-index it in MeiliSearch.
+///
+/// # Errors
+///
+/// Returns `ListingError::NotFound` if the listing does not exist,
+/// `ListingError::NotOwner` if the user is not the owner,
+/// `ListingError::AlreadySold` if the listing is sold or deleted,
+/// or `ListingError::InvalidInput` if validation fails.
+///
+/// # Search indexing
+///
+/// After successful DB update, the listing is re-indexed in MeiliSearch.
+/// If indexing fails, the error is logged but the update is **not** reverted.
 pub async fn update_listing_usecase(
     repo: &dyn ListingRepository,
+    search_engine: Option<&dyn SearchEngine>,
     listing_id: Uuid,
     user_id: Uuid,
     dto: UpdateListingDto,
@@ -73,5 +91,40 @@ pub async fn update_listing_usecase(
         )
         .await?;
 
+    // 7. Re-index in MeiliSearch (best-effort, non-blocking).
+    // If the search engine is unavailable or returns an error,
+    // log a warning but do NOT fail the update operation.
+    if let Some(engine) = search_engine {
+        let doc = listing_to_doc(&listing);
+        if let Err(e) = engine.index_listing(&doc).await {
+            tracing::warn!(
+                error = %e,
+                listing_id = %doc.id,
+                "MeiliSearch re-index failed after listing update"
+            );
+        }
+    }
+
     Ok(ListingResponseDto::from_listing(listing))
+}
+
+/// Convert a domain `Listing` into a `ListingDoc` for MeiliSearch indexing.
+fn listing_to_doc(listing: &Listing) -> ListingDoc {
+    ListingDoc {
+        id: listing.id.0.to_string(),
+        title: listing.title.clone(),
+        description: listing.description.clone(),
+        price: listing.price.to_f64().unwrap_or(0.0),
+        currency: listing.currency.clone(),
+        category: listing.category.clone(),
+        condition: listing.condition.as_str().to_string(),
+        status: listing.status.as_str().to_string(),
+        city: listing.city.clone(),
+        _geo: Some(Geo {
+            lat: listing.location_lat,
+            lng: listing.location_lon,
+        }),
+        created_at: listing.created_at.timestamp(),
+        image_url: listing.images.first().map(|img| img.image_url.clone()),
+    }
 }
