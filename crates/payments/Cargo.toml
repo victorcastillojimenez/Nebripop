@@ -13,6 +13,14 @@ uuid.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+validator.workspace = true
+async-trait.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+hex.workspace = true
+reqwest.workspace = true
+rust_decimal.workspace = true
+subtle.workspace = true
 
 common = { path = "../common" }
 users = { path = "../users" }
