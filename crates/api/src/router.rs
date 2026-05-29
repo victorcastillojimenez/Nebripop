@@ -24,6 +24,7 @@ pub fn build_router() -> Router<AppState> {
     let favorites_router = favorites::router::favorites_router::<AppState>();
     let geo_router = geo::router::geo_router::<AppState>();
     let listings_router = listings::router::listings_router::<AppState>();
+    let search_router = search::router::search_router::<AppState>();
 
     Router::new()
         // Health check
@@ -36,6 +37,7 @@ pub fn build_router() -> Router<AppState> {
         .merge(favorites_router)
         .merge(geo_router)
         .merge(listings_router)
+        .merge(search_router)
         // Global middleware
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
