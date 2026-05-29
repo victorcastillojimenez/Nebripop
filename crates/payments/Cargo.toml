@@ -25,3 +25,11 @@ subtle.workspace = true
 common = { path = "../common" }
 users = { path = "../users" }
 listings = { path = "../listings" }
+
+[dev-dependencies]
+sqlx = { workspace = true, features = ["macros", "migrate"] }
+rust_decimal = { workspace = true }
+hex = { workspace = true }
+hmac = { workspace = true }
+sha2 = { workspace = true }
+subtle = { workspace = true }
