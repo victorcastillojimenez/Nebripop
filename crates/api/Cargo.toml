@@ -31,4 +31,9 @@ tower = { workspace = true }
 askama = { workspace = true }
 askama_axum = { workspace = true }
 rust_decimal = { workspace = true }
+axum-extra = { version = "0.9", features = ["cookie"] }
+validator = { workspace = true }
+cookie = "0.18"
+
+
 

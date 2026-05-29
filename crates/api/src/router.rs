@@ -9,7 +9,7 @@ use crate::web::listings::listings_handler;
 use crate::web::listing_detail::listing_detail_handler;
 use crate::web::listing_create::listing_create_handler;
 use crate::web::search::search_handler;
-use crate::web::auth::{login_handler, register_handler};
+use crate::web::auth::{login_handler, login_post_handler, register_handler, register_post_handler, logout_handler};
 use crate::web::profile::profile_handler;
 use crate::web::chat_web::{chat_list_handler, conversation_handler};
 use crate::web::checkout::{checkout_handler, payment_success_handler, payment_error_handler};
@@ -54,8 +54,9 @@ pub fn build_router() -> Router<AppState> {
         .route("/listings/:id", get(listing_detail_handler))
         .route("/listings/new", get(listing_create_handler))
         .route("/search", get(search_handler))
-        .route("/login", get(login_handler))
-        .route("/register", get(register_handler))
+        .route("/login", get(login_handler).post(login_post_handler))
+        .route("/register", get(register_handler).post(register_post_handler))
+        .route("/logout", get(logout_handler))
         .route("/users/:id", get(profile_handler))
         .route("/chat", get(chat_list_handler))
         .route("/chat/:id", get(conversation_handler))
