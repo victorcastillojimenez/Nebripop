@@ -19,7 +19,6 @@ pub struct AppState {
     pub rating_repo: RatingRepository,
     pub favorite_repo: FavoriteRepository,
     pub geo_repo: GeoRepository,
-    pub active_connections: Arc<DashMap<(Uuid, Uuid), UnboundedSender<WsMessage>>>,
 }
 
 impl AppState {
@@ -52,7 +51,6 @@ impl AppState {
             rating_repo,
             favorite_repo,
             geo_repo,
-            active_connections: Arc::new(DashMap::new()),
         })
     }
 }
@@ -80,6 +78,9 @@ impl axum::extract::FromRef<AppState> for MessageRepository {
 impl axum::extract::FromRef<AppState> for ActiveConnections {
     fn from_ref(state: &AppState) -> Self {
         state.active_connections.clone()
+    }
+}
+
 impl axum::extract::FromRef<AppState> for RatingRepository {
     fn from_ref(state: &AppState) -> Self {
         state.rating_repo.clone()
