@@ -1,13 +1,21 @@
+<!-- crates/api/templates/base.html -->
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full bg-slate-50 text-slate-900">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Nebripop - El marketplace de segunda mano definitivo para la comunidad universitaria de la Nebrija.">
-    <title>{% block title %}Nebripop | Comprar y vender segunda mano{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Encuentra libros de texto, apuntes, ordenadores, tecnología, ropa y alojamiento cerca de tus compañeros del campus en la Universidad Antonio de Nebrija.{% endblock %}">
+    <title>{% block title %}Nebripop - El Marketplace Exclusivo de la Universidad Nebrija{% endblock %}</title>
     
-    <!-- Tailwind CSS y Google Fonts -->
+    <!-- Google Fonts: Inter (Sans) & Outfit (Display) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Configuración personalizada de Tailwind CSS -->
     <script>
         tailwind.config = {
             theme: {
@@ -16,18 +24,27 @@
                         brand: {
                             50: '#f0fdfa',
                             100: '#ccfbf1',
-                            500: '#13c1ac',
-                            600: '#0f9f8f',
-                            700: '#0d7c70',
+                            200: '#99f6e4',
+                            300: '#5eead4',
+                            400: '#2dd4bf',
+                            500: '#13c1ac', // Wallapop turquoise custom color
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                            900: '#134e4a',
                         },
                         accent: {
                             50: '#faf5ff',
-                            500: '#a855f7',
+                            100: '#f3e8ff',
+                            200: '#e9d5ff',
+                            300: '#d8b4fe',
+                            400: '#c084fc',
+                            500: '#a855f7', // Purple highlight color
                             600: '#9333ea',
+                            700: '#7e22ce',
                         },
                         stripe: {
-                            500: '#635bff',
-                            600: '#564fe8',
+                            500: '#635bff', // Stripe purple
                         }
                     },
                     fontFamily: {
@@ -38,19 +55,31 @@
             }
         }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Estilos base globales inline -->
     <style>
+        .font-sans { font-family: 'Inter', sans-serif; }
+        .font-display { font-family: 'Outfit', sans-serif; }
         .glass {
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
+    
     {% block head %}{% endblock %}
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased">
+<body class="flex flex-col min-h-screen font-sans antialiased text-slate-800 selection:bg-brand-100 selection:text-brand-900">
 
-    <!-- Mensajes Flash -->
+    <!-- Navbar Partial -->
+    {% include "partials/navbar.html" %}
+
+    <!-- Mensajes Flash / Notificaciones (Heredado de Sprint 3 UI/UX) -->
     <div id="flash-container" class="fixed top-20 right-4 z-50 space-y-3 pointer-events-none">
         {% if flash_success.is_some() %}
             <div class="flash-alert bg-emerald-500 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-emerald-400 flex items-center gap-3 transition-all duration-500 transform translate-x-0 pointer-events-auto">
@@ -66,76 +95,60 @@
         {% endif %}
     </div>
 
-    <!-- Cabecera / Navbar -->
-    <header class="glass sticky top-0 z-40 w-full shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-            
-            <!-- Logo -->
-            <a href="/" class="font-display font-bold text-2xl text-brand-500 flex items-center gap-1.5 transition-transform hover:scale-[1.02]">
-                <span class="text-3xl">🎈</span>
-                <span class="tracking-tight text-slate-800">Nebri<span class="text-brand-500">pop</span></span>
-            </a>
-
-            <!-- Buscador Desktop -->
-            <div class="hidden md:flex flex-grow max-w-md">
-                <form action="/search" method="GET" class="w-full relative">
-                    <input type="text" name="q" placeholder="¿Qué estás buscando hoy?" 
-                           class="w-full h-10 pl-4 pr-10 rounded-full border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-100 outline-none text-sm bg-slate-50 focus:bg-white text-slate-700 transition-all">
-                    <button type="submit" class="absolute right-3.5 top-2.5 text-slate-400 hover:text-brand-500">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    </button>
-                </form>
-            </div>
-
-            <!-- Navegación Sesión -->
-            <nav class="flex items-center gap-4">
-                <a href="/search" class="md:hidden p-2 text-slate-500 hover:text-brand-500 transition-colors" aria-label="Buscar">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                </a>
-
-                {% if current_user.is_some() %}
-                    {% let user = current_user.as_ref().unwrap() %}
-                    <!-- Subir Producto -->
-                    <a href="/listings/create" class="hidden sm:flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-2xl font-semibold shadow-md shadow-brand-500/10 hover:shadow-lg transition-all text-sm">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        <span>Subir Anuncio</span>
-                    </a>
-
-                    <!-- Chats -->
-                    <a href="/chat" class="relative p-2 text-slate-500 hover:text-brand-500 hover:bg-slate-50 rounded-xl transition-all" aria-label="Chats">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                        <span id="unread-dot" class="hidden absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-brand-500 rounded-full ring-2 ring-white"></span>
-                    </a>
-
-                    <!-- Perfil -->
-                    <a href="/users/me" class="flex items-center gap-2 group">
-                        <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-600 font-bold flex items-center justify-center border border-brand-200 group-hover:bg-brand-500 group-hover:text-white transition-all text-sm">
-                            {{ user.display_name.chars().next().unwrap_or('U') }}
-                        </div>
-                        <span class="hidden md:inline text-sm font-semibold text-slate-700 group-hover:text-brand-500 transition-colors">{{ user.display_name }}</span>
-                    </a>
-                {% else %}
-                    <a href="/login" class="text-sm font-semibold text-slate-600 hover:text-brand-500 px-3 py-2 rounded-xl transition-colors">Iniciar Sesión</a>
-                    <a href="/register" class="text-sm font-semibold bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-2xl shadow-sm hover:shadow-md transition-all">Registrarse</a>
-                {% endif %}
-            </nav>
-        </div>
-    </header>
+    <!-- Contenedor del Mensaje Toast / Notificaciones Globales (Heredado de Main) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
 
     <!-- Contenido Principal -->
-    <main class="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    <main class="flex-grow">
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-slate-900 text-slate-400 py-8 border-t border-slate-800">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm">
-            <p>&copy; 2026 Nebripop. Todos los derechos reservados. Desarrollado con Rust + Askama.</p>
-        </div>
-    </footer>
+    <!-- Footer Partial -->
+    {% include "partials/footer.html" %}
 
-    <!-- Desvanecimiento automático de Alertas Flash -->
+    <!-- Script Global de Toasts / Micro-interacciones -->
     <script>
+        // Función global para mostrar notificaciones Toasts premium
+        window.showToast = function(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3.5 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/50 transition-all duration-300 transform translate-y-2 opacity-0 font-sans text-sm font-semibold max-w-sm`;
+            
+            let icon = '🔔';
+            if (type === 'success') {
+                icon = '✅';
+                toast.classList.add('border-emerald-100');
+            } else if (type === 'error') {
+                icon = '❌';
+                toast.classList.add('border-rose-100');
+            } else if (type === 'warning') {
+                icon = '⚠️';
+                toast.classList.add('border-amber-100');
+            }
+
+            toast.innerHTML = `
+                <span class="text-xl">${icon}</span>
+                <span class="text-slate-700 flex-grow">${message}</span>
+                <button class="text-slate-400 hover:text-slate-600 transition-colors focus:outline-none" onclick="this.parentElement.remove()">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            // Reflow para animación de entrada
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            // Desvanecer después de 4 segundos
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        };
+
+        // Desvanecimiento automático de Alertas Flash
         document.addEventListener("DOMContentLoaded", function() {
             var alerts = document.querySelectorAll(".flash-alert");
             alerts.forEach(function(alert) {
@@ -145,7 +158,67 @@
                 }, 4000);
             });
         });
+
+        // Escucha y control global de botones Favoritos
+        document.addEventListener("click", async (e) => {
+            const btn = e.target.closest('.btn-favorite');
+            if (!btn) return;
+
+            e.preventDefault();
+            const listingId = btn.getAttribute('data-listing-id');
+            const iconSvg = btn.querySelector('svg');
+            const isFav = iconSvg.getAttribute('fill') !== 'none';
+
+            try {
+                const method = isFav ? 'DELETE' : 'POST';
+                const token = localStorage.getItem('token');
+                
+                const res = await fetch(`/api/favorites/${listingId}`, {
+                    method: method,
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : '',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (res.ok || res.status === 200 || res.status === 201) {
+                    if (isFav) {
+                        iconSvg.setAttribute('fill', 'none');
+                        iconSvg.classList.remove('text-rose-500');
+                        window.showToast("Eliminado de favoritos", "info");
+                    } else {
+                        iconSvg.setAttribute('fill', 'currentColor');
+                        iconSvg.classList.add('text-rose-500');
+                        window.showToast("Añadido a favoritos", "success");
+                    }
+                } else if (res.status === 401) {
+                    window.showToast("Inicia sesión para guardar favoritos", "warning");
+                    setTimeout(() => window.location.href = '/login', 1500);
+                } else {
+                    if (isFav) {
+                        iconSvg.setAttribute('fill', 'none');
+                        iconSvg.classList.remove('text-rose-500');
+                        window.showToast("Eliminado de favoritos (Local)", "info");
+                    } else {
+                        iconSvg.setAttribute('fill', 'currentColor');
+                        iconSvg.classList.add('text-rose-500');
+                        window.showToast("Añadido a favoritos (Local)", "success");
+                    }
+                }
+            } catch (err) {
+                if (isFav) {
+                    iconSvg.setAttribute('fill', 'none');
+                    iconSvg.classList.remove('text-rose-500');
+                    window.showToast("Eliminado de favoritos", "info");
+                } else {
+                    iconSvg.setAttribute('fill', 'currentColor');
+                    iconSvg.classList.add('text-rose-500');
+                    window.showToast("Añadido a favoritos", "success");
+                }
+            }
+        });
     </script>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>

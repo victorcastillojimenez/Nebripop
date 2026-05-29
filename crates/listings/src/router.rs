@@ -5,6 +5,8 @@ use crate::adapters::cloudinary::ImageStorageImpl;
 use crate::adapters::listing_repository::ListingRepositoryImpl;
 use crate::handlers;
 
+use search::adapters::meilisearch_adapter::MeiliSearchAdapter;
+
 /// Build the listings router with all listing endpoints.
 ///
 /// Public routes (no auth required):
@@ -21,6 +23,7 @@ where
     S: Clone + Send + Sync + 'static,
     ListingRepositoryImpl: axum::extract::FromRef<S>,
     ImageStorageImpl: axum::extract::FromRef<S>,
+    Option<MeiliSearchAdapter>: axum::extract::FromRef<S>,
     String: axum::extract::FromRef<S>,
 {
     Router::new()
