@@ -122,15 +122,10 @@
 
 {% block scripts %}
 <script>
-    function getCookie(name) {
-        const nameEQ = name + "=";
-        const ca = document.cookie.split(';');
-        for(let i=0;i < ca.length;i++) {
-            let c = ca[i];
-            while (c.charAt(0)==' ') c = c.substring(1,c.length);
-            if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
-        }
-        return null;
+    window.SESSION_TOKEN = '{{ auth_token }}';
+
+    function getSessionToken() {
+        return window.SESSION_TOKEN || null;
     }
 
     const container = document.getElementById('messages-container');
@@ -143,7 +138,7 @@
     // Scroll to bottom on load
     container.scrollTop = container.scrollHeight;
 
-    const token = getCookie('session_token');
+    const token = getSessionToken();
     const ws = new WebSocket(
       'ws://localhost:8080/api/chat/' + conversationId
       + '/ws?token=' + token

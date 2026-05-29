@@ -108,6 +108,9 @@
 
     <script>
         function getSessionToken() {
+            if (window.SESSION_TOKEN) {
+                return window.SESSION_TOKEN;
+            }
             const cookies = document.cookie.split(';');
             for (let cookie of cookies) {
                 const [name, value] = cookie.trim().split('=');

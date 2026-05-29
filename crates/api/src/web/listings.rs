@@ -1,6 +1,7 @@
 use askama_axum::IntoResponse;
 use askama::Template;
 use axum::{extract::{State, Query}, response::Html};
+use axum_extra::extract::CookieJar;
 use crate::app_state::AppState;
 use users::dtos::UserDto;
 use listings::dtos::ListingSummaryDto;
@@ -26,17 +27,24 @@ pub struct ListingsTemplate {
     pub current_page: usize,
     pub total_pages: usize,
     pub query_param: Option<String>,
+    pub session_token: String,
 }
 
 pub async fn listings_handler(
     State(state): State<AppState>,
     auth: Option<AuthUser>,
+    jar: CookieJar,
     Query(query): Query<ListingsQuery>,
 ) -> impl IntoResponse {
     let current_user = crate::web::get_current_user(auth, &state).await;
     let page = query.page.unwrap_or(1);
     let page_index = if page > 0 { page - 1 } else { 0 };
     let per_page = 12;
+
+    let session_token = jar
+        .get("session_token")
+        .map(|c| c.value().to_string())
+        .unwrap_or_default();
 
     let category_filter = query.category.as_deref().filter(|s| !s.is_empty());
 
@@ -69,6 +77,7 @@ pub async fn listings_handler(
         current_page: page as usize,
         total_pages,
         query_param: query.category,
+        session_token,
     };
     Html(template.render().unwrap())
 }

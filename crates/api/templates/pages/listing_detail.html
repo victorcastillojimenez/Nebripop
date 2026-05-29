@@ -229,6 +229,12 @@
 
 {% block scripts %}
 <script>
+    window.SESSION_TOKEN = '{{ session_token }}';
+
+    function getSessionToken() {
+        return window.SESSION_TOKEN || null;
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         // Gestión del click para contactar con el vendedor (Chat)
         const btnContactSeller = document.getElementById("btn-contact-seller");
