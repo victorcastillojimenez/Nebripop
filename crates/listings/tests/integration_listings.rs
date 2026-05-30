@@ -388,7 +388,7 @@ async fn given_listings_when_find_all_paginated_then_returns_active_only(pool: P
     )
     .await; // Should NOT appear in active listings
 
-    let result = repo.find_all_paginated(0, 20, None, None).await;
+    let result = repo.find_all_paginated(0, 20, None, None, None, None).await;
     assert!(result.is_ok(), "List should succeed");
 
     let (listings, total) = result.unwrap();
@@ -475,7 +475,7 @@ async fn given_category_filter_when_find_all_paginated_then_filters_correctly(po
     )
     .await;
 
-    let result = repo.find_all_paginated(0, 20, Some("deportes"), None).await;
+    let result = repo.find_all_paginated(0, 20, Some("deportes"), None, None, None).await;
     assert!(result.is_ok(), "Category filter should succeed");
 
     let (listings, total) = result.unwrap();
@@ -535,7 +535,7 @@ async fn given_condition_filter_when_find_all_paginated_then_filters_correctly(p
     .await;
 
     // Filter by 'new'
-    let result = repo.find_all_paginated(0, 20, None, Some("new")).await;
+    let result = repo        .find_all_paginated(0, 20, None, Some("new"), None, None).await;
     assert!(result.is_ok(), "Condition filter should succeed");
 
     let (listings, total) = result.unwrap();
@@ -544,7 +544,7 @@ async fn given_condition_filter_when_find_all_paginated_then_filters_correctly(p
     assert_eq!(listings[0].condition.as_str(), "new");
 
     // Filter by 'used'
-    let result = repo.find_all_paginated(0, 20, None, Some("used")).await;
+    let result = repo.find_all_paginated(0, 20, None, Some("used"), None, None).await;
     assert!(result.is_ok(), "Condition filter should succeed");
 
     let (listings, total) = result.unwrap();
@@ -553,7 +553,7 @@ async fn given_condition_filter_when_find_all_paginated_then_filters_correctly(p
     assert_eq!(listings[0].condition.as_str(), "used");
 
     // Filter by 'like_new'
-    let result = repo.find_all_paginated(0, 20, None, Some("like_new")).await;
+    let result = repo.find_all_paginated(0, 20, None, Some("like_new"), None, None).await;
     assert!(result.is_ok(), "Condition filter should succeed");
 
     let (listings, total) = result.unwrap();
@@ -562,7 +562,7 @@ async fn given_condition_filter_when_find_all_paginated_then_filters_correctly(p
     assert_eq!(listings[0].condition.as_str(), "like_new");
 
     // Combined filter: condition='new' + category='tecnologia'
-    let result = repo.find_all_paginated(0, 20, Some("tecnologia"), Some("new")).await;
+    let result = repo.find_all_paginated(0, 20, Some("tecnologia"), Some("new"), None, None).await;
     assert!(result.is_ok(), "Combined filter should succeed");
 
     let (listings, total) = result.unwrap();
@@ -570,7 +570,7 @@ async fn given_condition_filter_when_find_all_paginated_then_filters_correctly(p
     assert_eq!(listings[0].title, "Teléfono nuevo");
 
     // Combined filter that should return empty
-    let result = repo.find_all_paginated(0, 20, Some("hogar"), Some("new")).await;
+    let result = repo.find_all_paginated(0, 20, Some("hogar"), Some("new"), None, None).await;
     assert!(result.is_ok(), "Combined filter should succeed");
 
     let (listings, total) = result.unwrap();

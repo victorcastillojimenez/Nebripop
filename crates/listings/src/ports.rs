@@ -14,13 +14,15 @@ pub trait ListingRepository: Send + Sync {
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Listing>, ListingError>;
 
     /// Find all active listings with pagination, ordered by created_at DESC.
-    /// Optionally filtered by category and/or condition.
+    /// Optionally filtered by category, condition(s), and/or price range.
     async fn find_all_paginated(
         &self,
         page: i64,
         per_page: i64,
         category: Option<&str>,
         condition: Option<&str>,
+        min_price: Option<Decimal>,
+        max_price: Option<Decimal>,
     ) -> Result<(Vec<Listing>, i64), ListingError>;
 
     /// Find all listings by seller ID, ordered by created_at DESC.

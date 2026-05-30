@@ -24,9 +24,11 @@ pub async fn list_listings_handler(
     let page = params.page.max(0);
     let category = params.category.as_deref();
     let condition = params.condition.as_deref();
+    let min_price = params.min_price;
+    let max_price = params.max_price;
 
     let (listings, total) = repo
-        .find_all_paginated(page, per_page, category, condition)
+        .find_all_paginated(page, per_page, category, condition, min_price, max_price)
         .await
         .map_err(map_listing_error)?;
 
