@@ -39,6 +39,13 @@ struct ListingImageRow {
     pub position: i32,
 }
 
+/// Helper enum for dynamic filter value binding.
+/// Avoids boxing or trait-object overhead when building parameterised queries.
+enum FilterValue {
+    Text(String),
+    Price(Decimal),
+}
+
 /// Converts a DB row to domain Listing.
 impl TryFrom<ListingRow> for Listing {
     type Error = ListingError;
@@ -128,149 +135,87 @@ impl ListingRepository for ListingRepositoryImpl {
         per_page: i64,
         category: Option<&str>,
         condition: Option<&str>,
+        min_price: Option<Decimal>,
+        max_price: Option<Decimal>,
     ) -> Result<(Vec<Listing>, i64), ListingError> {
         let offset = page * per_page;
 
-        // Count total (always filtered by active status, optionally by category and/or condition)
-        let total: (i64,) = match (category, condition) {
-            (Some(cat), Some(cond)) => {
-                sqlx::query_as(
-                    r#"SELECT COUNT(*)::int8 FROM listings
-                       WHERE status = 'active' AND category = $1 AND condition = $2"#,
-                )
-                .bind(cat)
-                .bind(cond)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Database error in count listings: {}", e);
-                    ListingError::Database(e)
-                })?
-            }
-            (Some(cat), None) => {
-                sqlx::query_as(
-                    r#"SELECT COUNT(*)::int8 FROM listings
-                       WHERE status = 'active' AND category = $1"#,
-                )
-                .bind(cat)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Database error in count listings: {}", e);
-                    ListingError::Database(e)
-                })?
-            }
-            (None, Some(cond)) => {
-                sqlx::query_as(
-                    r#"SELECT COUNT(*)::int8 FROM listings
-                       WHERE status = 'active' AND condition = $1"#,
-                )
-                .bind(cond)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Database error in count listings: {}", e);
-                    ListingError::Database(e)
-                })?
-            }
-            (None, None) => {
-                sqlx::query_as(
-                    r#"SELECT COUNT(*)::int8 FROM listings WHERE status = 'active'"#,
-                )
-                .fetch_one(&self.pool)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Database error in count listings: {}", e);
-                    ListingError::Database(e)
-                })?
-            }
+        // ── Dynamic WHERE clause builder ──────────────────────────────
+        // Builds a parameterised SQL fragment for the given filters.
+        // Each filter appends one WHERE clause and pushes its value into
+        // a homogeneous parameter list that can be bound in order.
+        let mut where_clauses: Vec<String> = Vec::new();
+        let mut params: Vec<FilterValue> = Vec::new();
+
+        if let Some(cat) = category {
+            where_clauses.push(format!("category = ${}", params.len() + 1));
+            params.push(FilterValue::Text(cat.to_string()));
+        }
+        if let Some(cond) = condition {
+            where_clauses.push(format!("condition = ${}", params.len() + 1));
+            params.push(FilterValue::Text(cond.to_string()));
+        }
+        if let Some(min) = min_price {
+            where_clauses.push(format!("price >= ${}", params.len() + 1));
+            params.push(FilterValue::Price(min));
+        }
+        if let Some(max) = max_price {
+            where_clauses.push(format!("price <= ${}", params.len() + 1));
+            params.push(FilterValue::Price(max));
+        }
+
+        let where_suffix = if where_clauses.is_empty() {
+            String::new()
+        } else {
+            format!(" AND {}", where_clauses.join(" AND "))
         };
 
-        // Fetch listings with same filter combination
-        let rows: Vec<ListingRow> = match (category, condition) {
-            (Some(cat), Some(cond)) => {
-                sqlx::query_as::<_, ListingRow>(
-                    r#"SELECT id, seller_id, title, description, price, currency,
-                              category, condition, status, location_lat, location_lon,
-                              city, created_at, updated_at
-                       FROM listings
-                       WHERE status = 'active' AND category = $1 AND condition = $2
-                       ORDER BY created_at DESC
-                       LIMIT $3 OFFSET $4"#,
-                )
-                .bind(cat)
-                .bind(cond)
-                .bind(per_page)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Database error in find_all_paginated: {}", e);
-                    ListingError::Database(e)
-                })?
-            }
-            (Some(cat), None) => {
-                sqlx::query_as::<_, ListingRow>(
-                    r#"SELECT id, seller_id, title, description, price, currency,
-                              category, condition, status, location_lat, location_lon,
-                              city, created_at, updated_at
-                       FROM listings
-                       WHERE status = 'active' AND category = $1
-                       ORDER BY created_at DESC
-                       LIMIT $2 OFFSET $3"#,
-                )
-                .bind(cat)
-                .bind(per_page)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Database error in find_all_paginated: {}", e);
-                    ListingError::Database(e)
-                })?
-            }
-            (None, Some(cond)) => {
-                sqlx::query_as::<_, ListingRow>(
-                    r#"SELECT id, seller_id, title, description, price, currency,
-                              category, condition, status, location_lat, location_lon,
-                              city, created_at, updated_at
-                       FROM listings
-                       WHERE status = 'active' AND condition = $1
-                       ORDER BY created_at DESC
-                       LIMIT $2 OFFSET $3"#,
-                )
-                .bind(cond)
-                .bind(per_page)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Database error in find_all_paginated: {}", e);
-                    ListingError::Database(e)
-                })?
-            }
-            (None, None) => {
-                sqlx::query_as::<_, ListingRow>(
-                    r#"SELECT id, seller_id, title, description, price, currency,
-                              category, condition, status, location_lat, location_lon,
-                              city, created_at, updated_at
-                       FROM listings
-                       WHERE status = 'active'
-                       ORDER BY created_at DESC
-                       LIMIT $1 OFFSET $2"#,
-                )
-                .bind(per_page)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Database error in find_all_paginated: {}", e);
-                    ListingError::Database(e)
-                })?
-            }
-        };
+        let param_count = params.len();
 
-        // Enrich each listing with its images in a single batch query (resolves N+1)
+        // ── COUNT query ──────────────────────────────────────────────
+        let count_sql = format!(
+            "SELECT COUNT(*)::int8 FROM listings WHERE status = 'active'{where_suffix}"
+        );
+        let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql);
+        for pv in &params {
+            match pv {
+                FilterValue::Text(s) => count_query = count_query.bind(s.as_str()),
+                FilterValue::Price(d) => count_query = count_query.bind(*d),
+            }
+        }
+        let total: (i64,) = count_query.fetch_one(&self.pool).await.map_err(|e| {
+            tracing::error!("Database error in count listings: {}", e);
+            ListingError::Database(e)
+        })?;
+
+        // ── SELECT query ─────────────────────────────────────────────
+        let select_sql = format!(
+            r#"SELECT id, seller_id, title, description, price, currency,
+                      category, condition, status, location_lat, location_lon,
+                      city, created_at, updated_at
+               FROM listings
+               WHERE status = 'active'{where_suffix}
+               ORDER BY created_at DESC
+               LIMIT ${limit} OFFSET ${offset}"#,
+            limit = param_count + 1,
+            offset = param_count + 2,
+        );
+
+        let mut select_query = sqlx::query_as::<_, ListingRow>(&select_sql);
+        for pv in &params {
+            match pv {
+                FilterValue::Text(s) => select_query = select_query.bind(s.as_str()),
+                FilterValue::Price(d) => select_query = select_query.bind(*d),
+            }
+        }
+        select_query = select_query.bind(per_page).bind(offset);
+
+        let rows: Vec<ListingRow> = select_query.fetch_all(&self.pool).await.map_err(|e| {
+            tracing::error!("Database error in find_all_paginated: {}", e);
+            ListingError::Database(e)
+        })?;
+
+        // ── Enrich with images (single batch query, resolves N+1) ────
         if rows.is_empty() {
             return Ok((vec![], total.0));
         }

@@ -2,6 +2,7 @@ use askama_axum::IntoResponse;
 use askama::Template;
 use axum::{extract::{State, Query}, response::Html};
 use axum_extra::extract::CookieJar;
+use rust_decimal::Decimal;
 use crate::app_state::AppState;
 use users::dtos::UserDto;
 use listings::dtos::ListingSummaryDto;
@@ -13,7 +14,10 @@ use common::auth::AuthUser;
 #[derive(Deserialize)]
 pub struct ListingsQuery {
     pub category: Option<String>,
-    pub condition: Option<String>,
+    #[serde(default)]
+    pub condition: Option<Vec<String>>,
+    pub min_price: Option<String>,
+    pub max_price: Option<String>,
     pub page: Option<i64>,
 }
 
@@ -29,6 +33,12 @@ pub struct ListingsTemplate {
     pub total_pages: usize,
     pub query_param: Option<String>,
     pub session_token: String,
+    /// The currently selected category (to highlight in the sidebar).
+    pub selected_category: Option<String>,
+    pub min_price: Option<f64>,
+    pub max_price: Option<f64>,
+    /// The currently selected condition values (checkbox state).
+    pub selected_conditions: Vec<String>,
 }
 
 pub async fn listings_handler(
@@ -48,9 +58,29 @@ pub async fn listings_handler(
         .unwrap_or_default();
 
     let category_filter = query.category.as_deref().filter(|s| !s.is_empty());
-    let condition_filter = query.condition.as_deref().filter(|s| !s.is_empty());
+    // Take the first condition value from the list (supports multiple checkboxes,
+    // though the repository accepts a single condition for now).
+    let condition_value = query.condition.as_ref()
+        .and_then(|v| v.first().map(|s| s.as_str()))
+        .filter(|s| !s.is_empty());
+    // Parse optional price range from string parameters.
+    let min_price = query.min_price.as_ref()
+        .and_then(|s| s.parse::<f64>().ok())
+        .filter(|&v| v > 0.0)
+        .map(|v| Decimal::from_f64_retain(v).unwrap_or_default());
+    let max_price = query.max_price.as_ref()
+        .and_then(|s| s.parse::<f64>().ok())
+        .filter(|&v| v > 0.0)
+        .map(|v| Decimal::from_f64_retain(v).unwrap_or_default());
 
-    let (listings_dto, total_items) = match state.listing_repo.find_all_paginated(page_index, per_page, category_filter, condition_filter).await {
+    let (listings_dto, total_items) = match state.listing_repo.find_all_paginated(
+        page_index,
+        per_page,
+        category_filter,
+        condition_value,
+        min_price,
+        max_price,
+    ).await {
         Ok((listings, total)) => {
             let dtos = listings
                 .iter()
@@ -70,6 +100,16 @@ pub async fn listings_handler(
         ((total_items as f64) / (per_page as f64)).ceil() as usize
     };
 
+    // Convert price strings to f64 for template display
+    let min_price_display = query.min_price.as_ref()
+        .and_then(|s| s.parse::<f64>().ok())
+        .filter(|&v| v > 0.0);
+    let max_price_display = query.max_price.as_ref()
+        .and_then(|s| s.parse::<f64>().ok())
+        .filter(|&v| v > 0.0);
+
+    let selected_conditions = query.condition.unwrap_or_default();
+
     let template = ListingsTemplate {
         current_user,
         flash_success: None,
@@ -78,8 +118,12 @@ pub async fn listings_handler(
         total_items: total_items as usize,
         current_page: page as usize,
         total_pages,
-        query_param: query.category,
+        query_param: query.category.clone(),
         session_token,
+        selected_category: query.category,
+        min_price: min_price_display,
+        max_price: max_price_display,
+        selected_conditions,
     };
     Html(template.render().unwrap())
 }

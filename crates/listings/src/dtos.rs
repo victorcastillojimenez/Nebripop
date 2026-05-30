@@ -74,6 +74,12 @@ pub struct PaginationParams {
     /// Optional condition filter (new, like_new, used)
     pub condition: Option<String>,
 
+    /// Optional minimum price filter
+    pub min_price: Option<Decimal>,
+
+    /// Optional maximum price filter
+    pub max_price: Option<Decimal>,
+
     /// Optional seller ID filter
     pub seller_id: Option<Uuid>,
 }
