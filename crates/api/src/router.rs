@@ -58,6 +58,7 @@ pub fn build_router() -> Router<AppState> {
         .route("/login", get(login_handler).post(login_post_handler))
         .route("/register", get(register_handler).post(register_post_handler))
         .route("/logout", get(logout_handler))
+        .route("/users/me", get(my_profile_handler))
         .route("/users/:id", get(profile_handler))
         .route("/me", get(my_profile_handler))
         .route("/chat", get(chat_list_handler))
