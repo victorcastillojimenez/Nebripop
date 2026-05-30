@@ -81,22 +81,17 @@
                 <label class="flex items-center gap-2.5 text-sm text-slate-600 hover:text-brand-500 cursor-pointer group">
                     <input type="checkbox" name="condition[]" value="new" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
                         {% if filters::contains(selected_conditions, "new") %}checked{% endif %}>
-                    <span>Nuevo</span>
+                    <span>Nuevo (Precintado)</span>
                 </label>
                 <label class="flex items-center gap-2.5 text-sm text-slate-600 hover:text-brand-500 cursor-pointer group">
                     <input type="checkbox" name="condition[]" value="like_new" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
                         {% if filters::contains(selected_conditions, "like_new") %}checked{% endif %}>
-                    <span>Como nuevo</span>
+                    <span>Como nuevo (Apenas usado)</span>
                 </label>
                 <label class="flex items-center gap-2.5 text-sm text-slate-600 hover:text-brand-500 cursor-pointer group">
                     <input type="checkbox" name="condition[]" value="used" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
                         {% if filters::contains(selected_conditions, "used") %}checked{% endif %}>
-                    <span>Buen estado</span>
-                </label>
-                <label class="flex items-center gap-2.5 text-sm text-slate-600 hover:text-brand-500 cursor-pointer group">
-                    <input type="checkbox" name="condition[]" value="used" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
-                        {% if filters::contains(selected_conditions, "used") %}checked{% endif %}>
-                    <span>Aceptable</span>
+                    <span>Usado (Con marcas de desgaste)</span>
                 </label>
             </div>
         </div>
