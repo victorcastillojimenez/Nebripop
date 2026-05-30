@@ -36,6 +36,9 @@ pub struct SearchFilters {
     /// Category filter.
     pub category: Option<String>,
 
+    /// Condition filter (one or more values).
+    pub condition: Option<Vec<String>>,
+
     /// Minimum price (inclusive).
     pub min_price: Option<f64>,
 
@@ -67,6 +70,7 @@ impl SearchFilters {
         Self {
             query: None,
             category: None,
+            condition: None,
             min_price: None,
             max_price: None,
             latitude: None,
@@ -94,6 +98,7 @@ impl From<crate::dtos::SearchQueryDto> for SearchFilters {
         Self {
             query: dto.query,
             category: dto.category,
+            condition: dto.condition,
             min_price: dto.min_price,
             max_price: dto.max_price,
             latitude: dto.latitude,

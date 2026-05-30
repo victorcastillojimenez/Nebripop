@@ -74,6 +74,15 @@ fn build_where_clause(
     if filters.category.is_some() { conditions.push(format!("l.category = ${}", pt.reserve())); }
     if filters.min_price.is_some() { conditions.push(format!("l.price >= ${}::numeric", pt.reserve())); }
     if filters.max_price.is_some() { conditions.push(format!("l.price <= ${}::numeric", pt.reserve())); }
+    if let Some(ref cond_values) = filters.condition {
+        if cond_values.len() == 1 {
+            let idx = pt.reserve();
+            conditions.push(format!("l.condition = ${idx}"));
+        } else if cond_values.len() > 1 {
+            let params: Vec<String> = cond_values.iter().map(|_| format!("${}", pt.reserve())).collect();
+            conditions.push(format!("l.condition IN ({})", params.join(", ")));
+        }
+    }
     let (r_idx, la_idx, lo_idx) = if has_geo {
         let r = pt.reserve();
         let (la, lo) = (pt.reserve(), pt.reserve());
@@ -105,6 +114,11 @@ async fn execute_count(pool: &PgPool, sql: &str, filters: &SearchFilters, has_ge
     if let Some(ref cat) = filters.category { query = query.bind(cat); }
     if let Some(min) = filters.min_price { query = query.bind(min); }
     if let Some(max) = filters.max_price { query = query.bind(max); }
+    if let Some(ref conditions) = filters.condition {
+        for cond in conditions {
+            query = query.bind(cond);
+        }
+    }
     if has_geo {
         if let (Some(lat), Some(lng)) = (filters.latitude, filters.longitude) {
             let radius_m = filters.radius_km.unwrap_or(50.0).max(1.0) * 1000.0;
@@ -129,6 +143,11 @@ async fn execute_select(
     if let Some(ref cat) = filters.category { query = query.bind(cat); }
     if let Some(min) = filters.min_price { query = query.bind(min); }
     if let Some(max) = filters.max_price { query = query.bind(max); }
+    if let Some(ref conditions) = filters.condition {
+        for cond in conditions {
+            query = query.bind(cond);
+        }
+    }
     if has_geo {
         if let (Some(lat), Some(lng)) = (filters.latitude, filters.longitude) {
             let radius_m = filters.radius_km.unwrap_or(50.0).max(1.0) * 1000.0;

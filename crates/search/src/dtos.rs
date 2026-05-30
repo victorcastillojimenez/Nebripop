@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use uuid::Uuid;
 
 /// Query parameters for the search endpoint.
@@ -13,7 +13,13 @@ pub struct SearchQueryDto {
     /// Category filter (optional).
     pub category: Option<String>,
 
-    /// Minimum price (optional, >= 0).
+    /// Condition filter (optional). Accepts one value ("new"), multiple values
+    /// ("new&condition=used"), or comma-separated ("new,used").
+    #[serde(default, deserialize_with = "deserialize_string_or_vec")]
+    pub condition: Option<Vec<String>>,
+
+    /// Minimum price (optional, >= 0). Empty string deserializes to None.
+    #[serde(default, deserialize_with = "deserialize_optional_float")]
     pub min_price: Option<f64>,
 
     /// Maximum price (optional, >= 0).
@@ -55,6 +61,7 @@ impl Default for SearchQueryDto {
         Self {
             query: None,
             category: None,
+            condition: None,
             min_price: None,
             max_price: None,
             latitude: None,
@@ -64,6 +71,46 @@ impl Default for SearchQueryDto {
             page: default_page(),
             per_page: default_per_page(),
         }
+    }
+}
+
+/// Custom deserializer that treats an empty string as `None` instead of
+/// failing with "cannot parse float from empty string".
+fn deserialize_optional_float<'de, D>(d: D) -> Result<Option<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(d)?;
+    if s.is_empty() {
+        return Ok(None);
+    }
+    s.parse::<f64>().map(Some).map_err(serde::de::Error::custom)
+}
+
+/// Custom deserializer that accepts a single string, multiple strings, or
+/// a comma-separated string and always produces `Option<Vec<String>>`.
+fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrVec {
+        String(String),
+        Vec(Vec<String>),
+    }
+
+    match Option::<StringOrVec>::deserialize(deserializer)? {
+        None => Ok(None),
+        Some(StringOrVec::String(s)) => {
+            let values = s
+                .split(',')
+                .map(|v| v.trim().to_string())
+                .filter(|v| !v.is_empty())
+                .collect();
+            Ok(Some(values))
+        }
+        Some(StringOrVec::Vec(v)) => Ok(Some(v)),
     }
 }
 

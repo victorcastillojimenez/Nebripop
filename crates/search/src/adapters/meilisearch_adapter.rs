@@ -77,7 +77,7 @@ impl MeiliSearchAdapter {
             .await?;
 
         index
-            .set_filterable_attributes(["category", "price", "status", "_geo"])
+            .set_filterable_attributes(["category", "price", "status", "condition", "_geo"])
             .await?;
 
         index
@@ -94,6 +94,18 @@ impl MeiliSearchAdapter {
 
         if let Some(ref cat) = filters.category {
             parts.push(format!("category = '{}'", cat.replace('\'', "\\'")));
+        }
+        if let Some(ref conditions) = filters.condition {
+            if conditions.len() == 1 {
+                let escaped = conditions[0].replace('\'', "\\'");
+                parts.push(format!("condition = '{}'", escaped));
+            } else if conditions.len() > 1 {
+                let escaped: Vec<String> = conditions
+                    .iter()
+                    .map(|c| format!("'{}'", c.replace('\'', "\\'")))
+                    .collect();
+                parts.push(format!("condition IN [{}]", escaped.join(", ")));
+            }
         }
         if let Some(min) = filters.min_price {
             parts.push(format!("price >= {min}"));

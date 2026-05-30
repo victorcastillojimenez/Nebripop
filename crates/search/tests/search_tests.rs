@@ -29,6 +29,7 @@ fn test_search_query_dto_to_filters_custom_values() {
     let dto = SearchQueryDto {
         query: Some("bicicleta".to_string()),
         category: Some("deportes".to_string()),
+        condition: None,
         min_price: Some(10.0),
         max_price: Some(100.0),
         latitude: Some(41.3874),
