@@ -79,22 +79,22 @@
             <h4 class="font-display font-semibold text-sm text-slate-700 uppercase tracking-wider">Estado del producto</h4>
             <div class="space-y-2">
                 <label class="flex items-center gap-2.5 text-sm text-slate-600 hover:text-brand-500 cursor-pointer group">
-                    <input type="checkbox" name="condition" value="new" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
+                    <input type="checkbox" name="condition[]" value="new" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
                         {% if filters::contains(selected_conditions, "new") %}checked{% endif %}>
                     <span>Nuevo</span>
                 </label>
                 <label class="flex items-center gap-2.5 text-sm text-slate-600 hover:text-brand-500 cursor-pointer group">
-                    <input type="checkbox" name="condition" value="like_new" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
+                    <input type="checkbox" name="condition[]" value="like_new" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
                         {% if filters::contains(selected_conditions, "like_new") %}checked{% endif %}>
                     <span>Como nuevo</span>
                 </label>
                 <label class="flex items-center gap-2.5 text-sm text-slate-600 hover:text-brand-500 cursor-pointer group">
-                    <input type="checkbox" name="condition" value="used" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
+                    <input type="checkbox" name="condition[]" value="used" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
                         {% if filters::contains(selected_conditions, "used") %}checked{% endif %}>
                     <span>Buen estado</span>
                 </label>
                 <label class="flex items-center gap-2.5 text-sm text-slate-600 hover:text-brand-500 cursor-pointer group">
-                    <input type="checkbox" name="condition" value="used" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
+                    <input type="checkbox" name="condition[]" value="used" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
                         {% if filters::contains(selected_conditions, "used") %}checked{% endif %}>
                     <span>Aceptable</span>
                 </label>
