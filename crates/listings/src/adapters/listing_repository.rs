@@ -127,71 +127,147 @@ impl ListingRepository for ListingRepositoryImpl {
         page: i64,
         per_page: i64,
         category: Option<&str>,
+        condition: Option<&str>,
     ) -> Result<(Vec<Listing>, i64), ListingError> {
         let offset = page * per_page;
 
-        // Count total (always filtered by active status)
-        let total: (i64,) = if let Some(cat) = category {
-            sqlx::query_as(
-                r#"SELECT COUNT(*)::int8 FROM listings WHERE status = 'active' AND category = $1"#,
-            )
-            .bind(cat)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("Database error in count listings: {}", e);
-                ListingError::Database(e)
-            })?
-        } else {
-            sqlx::query_as(
-                r#"SELECT COUNT(*)::int8 FROM listings WHERE status = 'active'"#,
-            )
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("Database error in count listings: {}", e);
-                ListingError::Database(e)
-            })?
+        // Count total (always filtered by active status, optionally by category and/or condition)
+        let total: (i64,) = match (category, condition) {
+            (Some(cat), Some(cond)) => {
+                sqlx::query_as(
+                    r#"SELECT COUNT(*)::int8 FROM listings
+                       WHERE status = 'active' AND category = $1 AND condition = $2"#,
+                )
+                .bind(cat)
+                .bind(cond)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Database error in count listings: {}", e);
+                    ListingError::Database(e)
+                })?
+            }
+            (Some(cat), None) => {
+                sqlx::query_as(
+                    r#"SELECT COUNT(*)::int8 FROM listings
+                       WHERE status = 'active' AND category = $1"#,
+                )
+                .bind(cat)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Database error in count listings: {}", e);
+                    ListingError::Database(e)
+                })?
+            }
+            (None, Some(cond)) => {
+                sqlx::query_as(
+                    r#"SELECT COUNT(*)::int8 FROM listings
+                       WHERE status = 'active' AND condition = $1"#,
+                )
+                .bind(cond)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Database error in count listings: {}", e);
+                    ListingError::Database(e)
+                })?
+            }
+            (None, None) => {
+                sqlx::query_as(
+                    r#"SELECT COUNT(*)::int8 FROM listings WHERE status = 'active'"#,
+                )
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Database error in count listings: {}", e);
+                    ListingError::Database(e)
+                })?
+            }
         };
 
-        // Fetch listings
-        let rows: Vec<ListingRow> = if let Some(cat) = category {
-            sqlx::query_as::<_, ListingRow>(
-                r#"SELECT id, seller_id, title, description, price, currency,
-                          category, condition, status, location_lat, location_lon,
-                          city, created_at, updated_at
-                   FROM listings
-                   WHERE status = 'active' AND category = $1
-                   ORDER BY created_at DESC
-                   LIMIT $2 OFFSET $3"#,
-            )
-            .bind(cat)
-            .bind(per_page)
-            .bind(offset)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("Database error in find_all_paginated: {}", e);
-                ListingError::Database(e)
-            })?
-        } else {
-            sqlx::query_as::<_, ListingRow>(
-                r#"SELECT id, seller_id, title, description, price, currency,
-                          category, condition, status, location_lat, location_lon,
-                          city, created_at, updated_at
-                   FROM listings
-                   WHERE status = 'active'
-                   ORDER BY created_at DESC
-                   LIMIT $1 OFFSET $2"#,
-            )
-            .bind(per_page)
-            .bind(offset)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("Database error in find_all_paginated: {}", e);
-                ListingError::Database(e)
-            })?
+        // Fetch listings with same filter combination
+        let rows: Vec<ListingRow> = match (category, condition) {
+            (Some(cat), Some(cond)) => {
+                sqlx::query_as::<_, ListingRow>(
+                    r#"SELECT id, seller_id, title, description, price, currency,
+                              category, condition, status, location_lat, location_lon,
+                              city, created_at, updated_at
+                       FROM listings
+                       WHERE status = 'active' AND category = $1 AND condition = $2
+                       ORDER BY created_at DESC
+                       LIMIT $3 OFFSET $4"#,
+                )
+                .bind(cat)
+                .bind(cond)
+                .bind(per_page)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Database error in find_all_paginated: {}", e);
+                    ListingError::Database(e)
+                })?
+            }
+            (Some(cat), None) => {
+                sqlx::query_as::<_, ListingRow>(
+                    r#"SELECT id, seller_id, title, description, price, currency,
+                              category, condition, status, location_lat, location_lon,
+                              city, created_at, updated_at
+                       FROM listings
+                       WHERE status = 'active' AND category = $1
+                       ORDER BY created_at DESC
+                       LIMIT $2 OFFSET $3"#,
+                )
+                .bind(cat)
+                .bind(per_page)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Database error in find_all_paginated: {}", e);
+                    ListingError::Database(e)
+                })?
+            }
+            (None, Some(cond)) => {
+                sqlx::query_as::<_, ListingRow>(
+                    r#"SELECT id, seller_id, title, description, price, currency,
+                              category, condition, status, location_lat, location_lon,
+                              city, created_at, updated_at
+                       FROM listings
+                       WHERE status = 'active' AND condition = $1
+                       ORDER BY created_at DESC
+                       LIMIT $2 OFFSET $3"#,
+                )
+                .bind(cond)
+                .bind(per_page)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Database error in find_all_paginated: {}", e);
+                    ListingError::Database(e)
+                })?
+            }
+            (None, None) => {
+                sqlx::query_as::<_, ListingRow>(
+                    r#"SELECT id, seller_id, title, description, price, currency,
+                              category, condition, status, location_lat, location_lon,
+                              city, created_at, updated_at
+                       FROM listings
+                       WHERE status = 'active'
+                       ORDER BY created_at DESC
+                       LIMIT $1 OFFSET $2"#,
+                )
+                .bind(per_page)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Database error in find_all_paginated: {}", e);
+                    ListingError::Database(e)
+                })?
+            }
         };
 
         // Enrich each listing with its images in a single batch query (resolves N+1)

@@ -23,9 +23,10 @@ pub async fn list_listings_handler(
     let per_page = params.per_page.clamp(1, 100);
     let page = params.page.max(0);
     let category = params.category.as_deref();
+    let condition = params.condition.as_deref();
 
     let (listings, total) = repo
-        .find_all_paginated(page, per_page, category)
+        .find_all_paginated(page, per_page, category, condition)
         .await
         .map_err(map_listing_error)?;
 

@@ -13,6 +13,7 @@ use common::auth::AuthUser;
 #[derive(Deserialize)]
 pub struct ListingsQuery {
     pub category: Option<String>,
+    pub condition: Option<String>,
     pub page: Option<i64>,
 }
 
@@ -47,8 +48,9 @@ pub async fn listings_handler(
         .unwrap_or_default();
 
     let category_filter = query.category.as_deref().filter(|s| !s.is_empty());
+    let condition_filter = query.condition.as_deref().filter(|s| !s.is_empty());
 
-    let (listings_dto, total_items) = match state.listing_repo.find_all_paginated(page_index, per_page, category_filter).await {
+    let (listings_dto, total_items) = match state.listing_repo.find_all_paginated(page_index, per_page, category_filter, condition_filter).await {
         Ok((listings, total)) => {
             let dtos = listings
                 .iter()

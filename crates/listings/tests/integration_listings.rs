@@ -90,6 +90,45 @@ async fn seed_listing(
     listing_id
 }
 
+/// Seed a listing with a specific condition for test setup.
+async fn seed_listing_with_condition(
+    pool: &PgPool,
+    owner_id: Uuid,
+    title: &str,
+    description: &str,
+    price: Decimal,
+    status: &str,
+    category: &str,
+    condition: &str,
+    lat: f64,
+    lng: f64,
+) -> Uuid {
+    let listing_id = Uuid::new_v4();
+    let now = Utc::now();
+
+    sqlx::query(
+        "INSERT INTO listings (id, seller_id, title, description, price, currency, status, category, condition, location_lat, location_lon, city, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'eur', $6, $7, $8, $9, $10, 'TestCity', $11, $12)",
+    )
+    .bind(listing_id)
+    .bind(owner_id)
+    .bind(title)
+    .bind(description)
+    .bind(price)
+    .bind(status)
+    .bind(category)
+    .bind(condition)
+    .bind(lat)
+    .bind(lng)
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await
+    .expect("Seeding listing with condition should succeed");
+
+    listing_id
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -349,7 +388,7 @@ async fn given_listings_when_find_all_paginated_then_returns_active_only(pool: P
     )
     .await; // Should NOT appear in active listings
 
-    let result = repo.find_all_paginated(0, 20, None).await;
+    let result = repo.find_all_paginated(0, 20, None, None).await;
     assert!(result.is_ok(), "List should succeed");
 
     let (listings, total) = result.unwrap();
@@ -436,11 +475,105 @@ async fn given_category_filter_when_find_all_paginated_then_filters_correctly(po
     )
     .await;
 
-    let result = repo.find_all_paginated(0, 20, Some("deportes")).await;
+    let result = repo.find_all_paginated(0, 20, Some("deportes"), None).await;
     assert!(result.is_ok(), "Category filter should succeed");
 
     let (listings, total) = result.unwrap();
     assert_eq!(total, 1, "Only 1 listing in 'deportes' category");
     assert_eq!(listings[0].category, "deportes");
     assert_eq!(listings[0].title, "Zapatillas");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn given_condition_filter_when_find_all_paginated_then_filters_correctly(pool: PgPool) {
+    let repo = make_repo(pool.clone());
+    let owner_id = seed_user(&pool, "cond_filter@nebripop.test").await;
+
+    // Seed a 'new' listing
+    seed_listing_with_condition(
+        &pool,
+        owner_id,
+        "Teléfono nuevo",
+        "Teléfono sin estrenar",
+        Decimal::new(50000, 2),
+        "active",
+        "tecnologia",
+        "new",
+        19.4,
+        -99.1,
+    )
+    .await;
+
+    // Seed a 'used' listing
+    seed_listing_with_condition(
+        &pool,
+        owner_id,
+        "Mochila usada",
+        "Mochila de segunda mano",
+        Decimal::new(2000, 2),
+        "active",
+        "hogar",
+        "used",
+        19.4,
+        -99.1,
+    )
+    .await;
+
+    // Seed a 'like_new' listing
+    seed_listing_with_condition(
+        &pool,
+        owner_id,
+        "Libro como nuevo",
+        "Libro casi sin usar",
+        Decimal::new(1500, 2),
+        "active",
+        "libros",
+        "like_new",
+        19.4,
+        -99.1,
+    )
+    .await;
+
+    // Filter by 'new'
+    let result = repo.find_all_paginated(0, 20, None, Some("new")).await;
+    assert!(result.is_ok(), "Condition filter should succeed");
+
+    let (listings, total) = result.unwrap();
+    assert_eq!(total, 1, "Only 1 listing with condition 'new'");
+    assert_eq!(listings[0].title, "Teléfono nuevo");
+    assert_eq!(listings[0].condition.as_str(), "new");
+
+    // Filter by 'used'
+    let result = repo.find_all_paginated(0, 20, None, Some("used")).await;
+    assert!(result.is_ok(), "Condition filter should succeed");
+
+    let (listings, total) = result.unwrap();
+    assert_eq!(total, 1, "Only 1 listing with condition 'used'");
+    assert_eq!(listings[0].title, "Mochila usada");
+    assert_eq!(listings[0].condition.as_str(), "used");
+
+    // Filter by 'like_new'
+    let result = repo.find_all_paginated(0, 20, None, Some("like_new")).await;
+    assert!(result.is_ok(), "Condition filter should succeed");
+
+    let (listings, total) = result.unwrap();
+    assert_eq!(total, 1, "Only 1 listing with condition 'like_new'");
+    assert_eq!(listings[0].title, "Libro como nuevo");
+    assert_eq!(listings[0].condition.as_str(), "like_new");
+
+    // Combined filter: condition='new' + category='tecnologia'
+    let result = repo.find_all_paginated(0, 20, Some("tecnologia"), Some("new")).await;
+    assert!(result.is_ok(), "Combined filter should succeed");
+
+    let (listings, total) = result.unwrap();
+    assert_eq!(total, 1, "Only 1 listing matching both filters");
+    assert_eq!(listings[0].title, "Teléfono nuevo");
+
+    // Combined filter that should return empty
+    let result = repo.find_all_paginated(0, 20, Some("hogar"), Some("new")).await;
+    assert!(result.is_ok(), "Combined filter should succeed");
+
+    let (listings, total) = result.unwrap();
+    assert_eq!(total, 0, "No listings match 'hogar' + 'new'");
+    assert!(listings.is_empty());
 }
