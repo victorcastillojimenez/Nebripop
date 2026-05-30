@@ -4,6 +4,7 @@
 {% block title %}Catálogo de Productos - Nebripop{% endblock %}
 
 {% block content %}
+{% let form_action = "/listings" %}
 {% let selected_category = filters::empty_string_option() %}
 {% let min_price = filters::empty_f64_option() %}
 {% let max_price = filters::empty_f64_option() %}

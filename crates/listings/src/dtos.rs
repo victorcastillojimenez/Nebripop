@@ -71,7 +71,10 @@ pub struct PaginationParams {
     /// Optional category filter
     pub category: Option<String>,
 
-    /// Optional status filter
+    /// Optional condition filter (new, like_new, used)
+    pub condition: Option<String>,
+
+    /// Optional seller ID filter
     pub seller_id: Option<Uuid>,
 }
 
