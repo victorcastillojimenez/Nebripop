@@ -35,6 +35,17 @@ pub enum PhysicalCondition {
     Used,
 }
 
+impl std::fmt::Display for PhysicalCondition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PhysicalCondition::New => write!(f, "Nuevo"),
+            PhysicalCondition::LikeNew => write!(f, "Como nuevo"),
+            PhysicalCondition::Used => write!(f, "Usado"),
+        }
+    }
+}
+
+
 impl PhysicalCondition {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -44,7 +55,7 @@ impl PhysicalCondition {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn from_condition_str(s: &str) -> Option<Self> {
         match s {
             "new" => Some(PhysicalCondition::New),
             "like_new" | "like-new" => Some(PhysicalCondition::LikeNew),
@@ -72,7 +83,7 @@ impl ListingStatus {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn from_status_str(s: &str) -> Option<Self> {
         match s {
             "active" => Some(ListingStatus::Active),
             "sold" => Some(ListingStatus::Sold),
@@ -200,9 +211,9 @@ mod tests {
             (PhysicalCondition::Used, "used"),
         ] {
             assert_eq!(variant.as_str(), *s);
-            assert_eq!(PhysicalCondition::from_str(s), Some(*variant));
+            assert_eq!(PhysicalCondition::from_condition_str(s), Some(*variant));
         }
-        assert_eq!(PhysicalCondition::from_str("unknown"), None);
+        assert_eq!(PhysicalCondition::from_condition_str("unknown"), None);
     }
 
     #[test]
@@ -213,9 +224,9 @@ mod tests {
             (ListingStatus::Deleted, "deleted"),
         ] {
             assert_eq!(variant.as_str(), *s);
-            assert_eq!(ListingStatus::from_str(s), Some(*variant));
+            assert_eq!(ListingStatus::from_status_str(s), Some(*variant));
         }
-        assert_eq!(ListingStatus::from_str("unknown"), None);
+        assert_eq!(ListingStatus::from_status_str("unknown"), None);
     }
 
     #[test]

@@ -4,10 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Nebripop - El Marketplace Exclusivo de la Universidad Nebrija{% endblock %}</title>
-    
-    <!-- Meta SEO -->
     <meta name="description" content="{% block meta_description %}Encuentra libros de texto, apuntes, ordenadores, tecnología, ropa y alojamiento cerca de tus compañeros del campus en la Universidad Antonio de Nebrija.{% endblock %}">
+    <title>{% block title %}Nebripop - El Marketplace Exclusivo de la Universidad Nebrija{% endblock %}</title>
     
     <!-- Google Fonts: Inter (Sans) & Outfit (Display) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58,39 +56,46 @@
         }
     </script>
 
-    <!-- Estilos base globales inline (No `@apply` por limitación de CDN) -->
+    <!-- Estilos base globales inline -->
     <style>
-        .font-sans {
-            font-family: 'Inter', sans-serif;
-        }
-        .font-display {
-            font-family: 'Outfit', sans-serif;
+        .font-sans { font-family: 'Inter', sans-serif; }
+        .font-display { font-family: 'Outfit', sans-serif; }
+        .glass {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
         /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 9999px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
     
     {% block head %}{% endblock %}
 </head>
-<body class="flex flex-col min-h-full font-sans antialiased text-slate-800 selection:bg-brand-100 selection:text-brand-900">
+<body class="flex flex-col min-h-screen font-sans antialiased text-slate-800 selection:bg-brand-100 selection:text-brand-900">
 
     <!-- Navbar Partial -->
     {% include "partials/navbar.html" %}
 
-    <!-- Contenedor del Mensaje Toast / Notificaciones Globales -->
+    <!-- Mensajes Flash / Notificaciones (Heredado de Sprint 3 UI/UX) -->
+    <div id="flash-container" class="fixed top-20 right-4 z-50 space-y-3 pointer-events-none">
+        {% if flash_success.is_some() %}
+            <div class="flash-alert bg-emerald-500 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-emerald-400 flex items-center gap-3 transition-all duration-500 transform translate-x-0 pointer-events-auto">
+                <span class="text-xl">✅</span>
+                <span class="font-semibold text-sm">{{ flash_success.as_ref().unwrap() }}</span>
+            </div>
+        {% endif %}
+        {% if flash_error.is_some() %}
+            <div class="flash-alert bg-red-500 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-red-400 flex items-center gap-3 transition-all duration-500 transform translate-x-0 pointer-events-auto">
+                <span class="text-xl">⚠️</span>
+                <span class="font-semibold text-sm">{{ flash_error.as_ref().unwrap() }}</span>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Contenedor del Mensaje Toast / Notificaciones Globales (Heredado de Main) -->
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
 
     <!-- Contenido Principal -->
@@ -101,8 +106,21 @@
     <!-- Footer Partial -->
     {% include "partials/footer.html" %}
 
-    <!-- Script Global de Toasts / Micro-interacciones -->
     <script>
+        function getSessionToken() {
+            if (window.SESSION_TOKEN) {
+                return window.SESSION_TOKEN;
+            }
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'session_token') {
+                    return decodeURIComponent(value);
+                }
+            }
+            return null;
+        }
+
         // Función global para mostrar notificaciones Toasts premium
         window.showToast = function(message, type = 'info') {
             const container = document.getElementById('toast-container');
@@ -143,6 +161,17 @@
             }, 4000);
         };
 
+        // Desvanecimiento automático de Alertas Flash
+        document.addEventListener("DOMContentLoaded", function() {
+            var alerts = document.querySelectorAll(".flash-alert");
+            alerts.forEach(function(alert) {
+                setTimeout(function() {
+                    alert.classList.add("opacity-0", "translate-x-10");
+                    setTimeout(function() { alert.remove(); }, 500);
+                }, 4000);
+            });
+        });
+
         // Escucha y control global de botones Favoritos
         document.addEventListener("click", async (e) => {
             const btn = e.target.closest('.btn-favorite');
@@ -154,15 +183,18 @@
             const isFav = iconSvg.getAttribute('fill') !== 'none';
 
             try {
-                // Endpoint local de favoritos
                 const method = isFav ? 'DELETE' : 'POST';
-                const token = localStorage.getItem('token');
+                const token = getSessionToken();
+                if (!token) {
+                    window.showToast("Inicia sesión para guardar favoritos", "warning");
+                    setTimeout(() => window.location.href = '/login', 1500);
+                    return;
+                }
                 
-                // Fetch mock/real a backend con cabeceras correctas
                 const res = await fetch(`/api/favorites/${listingId}`, {
                     method: method,
                     headers: {
-                        'Authorization': token ? `Bearer ${token}` : '',
+                        'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json'
                     }
                 });
@@ -181,7 +213,6 @@
                     window.showToast("Inicia sesión para guardar favoritos", "warning");
                     setTimeout(() => window.location.href = '/login', 1500);
                 } else {
-                    // Fallback para mock si el backend no está totalmente levantado
                     if (isFav) {
                         iconSvg.setAttribute('fill', 'none');
                         iconSvg.classList.remove('text-rose-500');
@@ -193,7 +224,6 @@
                     }
                 }
             } catch (err) {
-                // Fallback para mock visual
                 if (isFav) {
                     iconSvg.setAttribute('fill', 'none');
                     iconSvg.classList.remove('text-rose-500');

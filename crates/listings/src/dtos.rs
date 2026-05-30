@@ -56,6 +56,7 @@ pub struct UpdateListingDto {
     pub location_lat: Option<f64>,
     pub location_lon: Option<f64>,
     pub city: Option<String>,
+    pub status: Option<ListingStatus>,
 }
 
 /// Pagination query parameters.
@@ -202,8 +203,8 @@ impl ListingSummaryDto {
             price: listing.price,
             currency: listing.currency.clone(),
             category: listing.category.clone(),
-            condition: listing.condition.clone(),
-            status: listing.status.clone(),
+            condition: listing.condition,
+            status: listing.status,
             city: listing.city.clone(),
             first_image_url,
             image_count: listing.images.len() as i32,

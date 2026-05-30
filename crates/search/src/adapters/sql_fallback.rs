@@ -56,6 +56,7 @@ impl ParamTracker {
         idx
     }
 
+    #[allow(dead_code)]
     fn current(&self) -> u32 {
         self.next
     }

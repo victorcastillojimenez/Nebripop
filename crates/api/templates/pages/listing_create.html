@@ -15,11 +15,38 @@
     <!-- Caja del Formulario -->
     <div class="bg-white rounded-3xl border border-slate-100 p-8 sm:p-10 shadow-xl shadow-slate-100/50">
         
-        <form id="form-create-listing" class="space-y-8" enctype="multipart/form-data">
+        <!-- Tarjetas de Alerta / Banner de Error -->
+        {% if flash_error.is_some() %}
+        <div class="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3 text-rose-800">
+            <span class="text-xl">⚠️</span>
+            <div>
+                <h4 class="font-display font-bold text-sm">Error al crear el anuncio</h4>
+                <p class="text-xs text-rose-600 mt-0.5">Revisa los datos e intenta de nuevo.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <div id="js-error-banner" class="hidden mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3 text-rose-800">
+            <span class="text-xl">⚠️</span>
+            <div>
+                <h4 class="font-display font-bold text-sm">Error al crear el anuncio</h4>
+                <p class="text-xs text-rose-600 mt-0.5">Revisa los datos.</p>
+            </div>
+        </div>
+
+        <div id="js-login-warning-banner" class="hidden mb-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-3 text-amber-800">
+            <span class="text-xl">🔒</span>
+            <div>
+                <h4 class="font-display font-bold text-sm">Sesión requerida</h4>
+                <p class="text-xs text-amber-600 mt-0.5">Inicia sesión para poder publicar un anuncio.</p>
+            </div>
+        </div>
+
+        <form id="form-create-listing" class="space-y-8" action="/listings/create" method="POST">
             
-            <!-- Carga de Imagen / Foto (Visual Premium Drag & Drop) -->
+            <!-- Carga de Imagen / Foto (Visual Premium Drag & Drop) (Simulada para MVP) -->
             <div class="space-y-3">
-                <label class="block text-sm font-bold text-slate-700">Foto del producto</label>
+                <label class="block text-sm font-bold text-slate-700">Foto del producto (Opcional)</label>
                 <div id="drop-zone" class="border-2 border-dashed border-slate-200 hover:border-brand-500 bg-slate-50/50 hover:bg-brand-50/10 rounded-2xl p-8 text-center transition-all cursor-pointer relative group">
                     <input 
                         type="file" 
@@ -109,11 +136,23 @@
                     required
                 >
                     <option value="" disabled selected>Selecciona el estado...</option>
-                    <option value="nuevo">Nuevo (Precintado)</option>
-                    <option value="como_nuevo">Como nuevo (Apenas usado)</option>
-                    <option value="bueno">Buen estado (Tiene algún uso)</option>
-                    <option value="usado">Aceptable (Tiene marcas claras de desgaste)</option>
+                    <option value="new">Nuevo (Precintado)</option>
+                    <option value="like_new">Como nuevo (Apenas usado)</option>
+                    <option value="used">Usado (Con marcas de desgaste)</option>
                 </select>
+            </div>
+
+            <!-- Fila de Ciudad / Campus -->
+            <div class="space-y-2">
+                <label for="input-listing-city" class="block text-sm font-bold text-slate-700">Ciudad / Campus</label>
+                <input 
+                    type="text" 
+                    id="input-listing-city" 
+                    name="city" 
+                    placeholder="Ej. Madrid (Campus Dehesa de la Villa)" 
+                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 rounded-2xl outline-none text-sm transition-all text-slate-800 font-sans"
+                    required
+                >
             </div>
 
             <!-- Fila de Descripción -->
@@ -160,6 +199,8 @@
 
 {% block scripts %}
 <script>
+    window.SESSION_TOKEN = '{{ session_token }}';
+
     document.addEventListener("DOMContentLoaded", () => {
         const form = document.getElementById("form-create-listing");
         const titleInput = document.getElementById("input-listing-title");
@@ -179,6 +220,17 @@
         const previewContainer = document.getElementById("image-preview-container");
         const previewImage = document.getElementById("image-preview");
         const removeImageBtn = document.getElementById("btn-remove-image");
+
+        // Detect query parameters to show banners
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('error') === '1' || urlParams.get('error') === 'true') {
+            const errBanner = document.getElementById('js-error-banner');
+            if (errBanner) errBanner.classList.remove('hidden');
+        }
+        if (urlParams.get('next')) {
+            const warningBanner = document.getElementById('js-login-warning-banner');
+            if (warningBanner) warningBanner.classList.remove('hidden');
+        }
 
         // Contador de caracteres para Título
         titleInput.addEventListener("input", () => {
@@ -256,39 +308,82 @@
                 return;
             }
 
-            // Envío por fetch multipart/form-data
+            const token = window.SESSION_TOKEN;
+            if (!token) {
+                window.showToast("Inicia sesión para poder publicar", "warning");
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1500);
+                return;
+            }
+
             window.showToast("Subiendo tu anuncio...", "info");
-            
-            const formData = new FormData(form);
-            const token = localStorage.getItem("token");
+
+            const formData = new FormData(e.target);
 
             try {
-                const res = await fetch("/api/listings", {
+                // Paso 1: crear el anuncio
+                const res = await fetch('/api/listings', {
                     method: 'POST',
                     headers: {
-                        'Authorization': token ? `Bearer ${token}` : ''
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
                     },
-                    body: formData
+                    body: JSON.stringify({
+                        title: formData.get('title'),
+                        description: formData.get('description'),
+                        price: parseFloat(formData.get('price')),
+                        category: formData.get('category'),
+                        condition: formData.get('condition'),
+                        city: formData.get('city'),
+                        locationLat: 40.4168,
+                        locationLon: -3.7038
+                    })
                 });
 
-                if (res.ok) {
-                    const data = await res.json();
-                    window.showToast("¡Anuncio publicado con éxito!", "success");
-                    setTimeout(() => {
-                        window.location.href = `/listings/${data.id || ""}`;
-                    }, 1500);
-                } else {
-                    const errData = await res.json().catch(() => ({}));
-                    window.showToast(errData.message || "Error al publicar tu anuncio", "error");
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    window.showToast(err.message || 'Error al crear anuncio', 'error');
+                    return;
                 }
-            } catch (err) {
-                // Fallback exitoso simulado para testing en local
-                window.showToast("¡Anuncio publicado con éxito (Simulado)!", "success");
+
+                const listing = await res.json();
+
+                // Paso 2: subir imagen si existe
+                const imageFile = formData.get('image');
+                if (imageFile && imageFile.size > 0) {
+                    window.showToast("Subiendo imagen del anuncio...", "info");
+                    const imageFormData = new FormData();
+                    imageFormData.append('image', imageFile);
+
+                    const imgRes = await fetch('/api/listings/' + listing.id + '/images', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: imageFormData
+                    });
+
+                    if (!imgRes.ok) {
+                        window.showToast("Anuncio creado, pero no se pudo subir la imagen", "warning");
+                        setTimeout(() => {
+                            window.location.href = '/listings';
+                        }, 2000);
+                        return;
+                    }
+                }
+
+                window.showToast("¡Anuncio publicado correctamente!", "success");
                 setTimeout(() => {
                     window.location.href = '/listings';
                 }, 1500);
+
+            } catch (err) {
+                console.error(err);
+                window.showToast("Error de conexión al crear anuncio", "error");
             }
         });
     });
 </script>
 {% endblock %}
+

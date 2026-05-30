@@ -44,10 +44,10 @@ impl TryFrom<ListingRow> for Listing {
     type Error = ListingError;
 
     fn try_from(row: ListingRow) -> Result<Self, Self::Error> {
-        let condition = PhysicalCondition::from_str(&row.condition)
+        let condition = PhysicalCondition::from_condition_str(&row.condition)
             .ok_or_else(|| ListingError::InvalidInput(format!("Unknown condition: {}", row.condition)))?;
 
-        let status = ListingStatus::from_str(&row.status)
+        let status = ListingStatus::from_status_str(&row.status)
             .ok_or_else(|| ListingError::InvalidInput(format!("Unknown status: {}", row.status)))?;
 
         Ok(Self {
@@ -366,6 +366,7 @@ impl ListingRepository for ListingRepositoryImpl {
         location_lat: Option<f64>,
         location_lon: Option<f64>,
         city: Option<&str>,
+        status: Option<&ListingStatus>,
     ) -> Result<Listing, ListingError> {
         // First, get existing listing to merge
         let existing = self.find_by_id(id).await?;
@@ -379,12 +380,13 @@ impl ListingRepository for ListingRepositoryImpl {
         let new_lat = location_lat.unwrap_or(existing.location_lat);
         let new_lon = location_lon.unwrap_or(existing.location_lon);
         let new_city = city.unwrap_or(&existing.city);
+        let new_status = status.map(|s| s.as_str()).unwrap_or_else(|| existing.status.as_str());
 
         let row: ListingRow = sqlx::query_as::<_, ListingRow>(
             r#"UPDATE listings
                SET title = $2, description = $3, price = $4, category = $5,
                    condition = $6, location_lat = $7, location_lon = $8,
-                   city = $9, updated_at = now()
+                   city = $9, status = $10, updated_at = now()
                WHERE id = $1
                RETURNING id, seller_id, title, description, price, currency,
                          category, condition, status, location_lat, location_lon,
@@ -399,6 +401,7 @@ impl ListingRepository for ListingRepositoryImpl {
         .bind(new_lat)
         .bind(new_lon)
         .bind(new_city)
+        .bind(new_status)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| {

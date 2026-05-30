@@ -22,7 +22,8 @@ pub struct SearchQueryDto {
     #[serde(default, deserialize_with = "deserialize_optional_float")]
     pub min_price: Option<f64>,
 
-    /// Maximum price (optional, >= 0).
+    /// Maximum price (optional, >= 0). Empty string deserializes to None.
+    #[serde(default, deserialize_with = "deserialize_optional_float")]
     pub max_price: Option<f64>,
 
     /// Latitude for geo-radius search (optional, must be paired with lng).
@@ -196,7 +197,7 @@ impl SearchQueryDto {
 
         Ok(Self {
             page: self.page.max(0),
-            per_page: self.per_page.min(100).max(1),
+            per_page: self.per_page.clamp(1, 100),
             ..self
         })
     }

@@ -41,8 +41,8 @@ pub async fn update_listing_usecase(
         return Err(ListingError::NotOwner(listing_id));
     }
 
-    // 3. Verify listing is active (cannot edit sold or deleted)
-    if existing.status != ListingStatus::Active {
+    // 3. Verify listing status transitions: cannot edit unless active, or transitioning from Sold back to Active
+    if existing.status != ListingStatus::Active && !(existing.status == ListingStatus::Sold && dto.status == Some(ListingStatus::Active)) {
         return Err(ListingError::AlreadySold(listing_id));
     }
 
@@ -62,14 +62,14 @@ pub async fn update_listing_usecase(
 
     // 5. Validate coordinates if provided
     if let Some(lat) = dto.location_lat {
-        if lat < -90.0 || lat > 90.0 {
+        if !(-90.0..=90.0).contains(&lat) {
             return Err(ListingError::InvalidInput(
                 "Latitud inválida: debe estar entre -90 y 90".to_string(),
             ));
         }
     }
     if let Some(lon) = dto.location_lon {
-        if lon < -180.0 || lon > 180.0 {
+        if !(-180.0..=180.0).contains(&lon) {
             return Err(ListingError::InvalidInput(
                 "Longitud inválida: debe estar entre -180 y 180".to_string(),
             ));
@@ -88,6 +88,7 @@ pub async fn update_listing_usecase(
             dto.location_lat,
             dto.location_lon,
             dto.city.as_deref(),
+            dto.status.as_ref(),
         )
         .await?;
 

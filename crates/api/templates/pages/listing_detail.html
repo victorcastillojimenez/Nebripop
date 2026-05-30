@@ -22,9 +22,9 @@
         <!-- Galería de Imágenes (Columna Izquierda 2/3 en Desktop) -->
         <div class="lg:col-span-2 space-y-6">
             <div class="relative bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm aspect-video sm:aspect-square md:aspect-video flex items-center justify-center">
-                {% if listing.image_url.is_some() %}
+                {% if !listing.images.is_empty() %}
                     <img 
-                        src="{{ listing.image_url.as_ref().unwrap() }}" 
+                        src="{{ listing.images.first().unwrap().image_url }}" 
                         alt="{{ listing.title }}"
                         class="w-full h-full object-cover"
                         id="img-main-view"
@@ -44,7 +44,7 @@
                     class="btn-favorite absolute top-6 right-6 w-12 h-12 bg-white/90 backdrop-blur-sm hover:bg-white text-slate-400 hover:text-rose-500 rounded-full flex items-center justify-center shadow-lg border border-slate-100 active:scale-95 transition-all duration-200"
                     aria-label="Agregar a favoritos"
                 >
-                    <svg class="w-6 h-6 transition-transform hover:scale-110" fill="{% if listing.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6 transition-transform hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                     </svg>
                 </button>
@@ -66,7 +66,7 @@
                 </h1>
 
                 <div class="text-3xl font-display font-black text-brand-500">
-                    {{ "%.2f"|format(listing.price) }} €
+                    {{ listing.price|format_decimal("%.2f") }} €
                 </div>
 
                 <hr class="border-slate-100">
@@ -127,38 +127,88 @@
                 </div>
             </div>
 
-            <!-- Caja de Acciones de Compra / Contacto -->
+            <!-- Caja de Acciones de Compra / Contacto / Gestión -->
             <div class="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4">
                 
-                <!-- Botón Contactar Vendedor (Chat) -->
-                <a 
-                    href="/chat?listing={{ listing.id }}&recipient={{ seller.id }}" 
-                    id="btn-contact-seller"
-                    class="w-full py-3.5 bg-brand-500 hover:bg-brand-600 active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-brand-500/10 hover:shadow-brand-500/20 text-sm"
-                >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    <span>Contactar con vendedor</span>
-                </a>
+                {% if self.is_seller() %}
+                    <!-- Acciones para el Vendedor (Gestión del Anuncio) -->
+                    {% if listing.status.as_str() == "active" %}
+                        <button 
+                            type="button" 
+                            id="btn-mark-as-sold"
+                            data-listing-id="{{ listing.id }}"
+                            class="w-full py-3.5 bg-rose-500 hover:bg-rose-600 active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-rose-500/10 text-sm"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Marcar como vendido</span>
+                        </button>
+                    {% else if listing.status.as_str() == "sold" %}
+                        <!-- Banner de vendido para el vendedor -->
+                        <div class="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-rose-800 text-sm flex items-start gap-3 shadow-sm mb-2">
+                            <span class="text-xl">⚠️</span>
+                            <div>
+                                <div class="font-extrabold text-rose-900 mb-0.5">Artículo Vendido</div>
+                                <p class="text-xs text-rose-700/90 leading-relaxed font-semibold">Has marcado este artículo como vendido.</p>
+                            </div>
+                        </div>
 
-                <!-- Botón Comprar / Pago Seguro (Stripe) -->
-                <button 
-                    type="button" 
-                    id="btn-buy-stripe"
-                    data-listing-id="{{ listing.id }}"
-                    class="w-full py-3.5 bg-stripe-500 hover:bg-[#5b52e0] active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-stripe-500/10"
-                >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                    </svg>
-                    <span>Comprar con Stripe</span>
-                </button>
+                        <button 
+                            type="button" 
+                            id="btn-mark-as-active"
+                            data-listing-id="{{ listing.id }}"
+                            class="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/10 text-sm"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H17" />
+                            </svg>
+                            <span>Volver a poner a la venta</span>
+                        </button>
+                    {% endif %}
+                {% else %}
+                    <!-- Acciones para el Comprador -->
+                    {% if listing.status.as_str() == "sold" %}
+                        <!-- Banner de vendido para compradores -->
+                        <div class="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-rose-800 text-sm flex items-start gap-3 shadow-sm">
+                            <span class="text-xl">⚠️</span>
+                            <div>
+                                <div class="font-extrabold text-rose-900 mb-0.5">Artículo Vendido</div>
+                                <p class="text-xs text-rose-700/90 leading-relaxed font-semibold">Este artículo ya ha sido vendido y no está disponible para su compra.</p>
+                            </div>
+                        </div>
+                    {% else if listing.status.as_str() == "active" %}
+                        <!-- Botón Contactar Vendedor (Chat) -->
+                        <button 
+                            type="button" 
+                            id="btn-contact-seller"
+                            class="w-full py-3.5 bg-brand-500 hover:bg-brand-600 active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-brand-500/10 hover:shadow-brand-500/20 text-sm"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <span>Contactar con vendedor</span>
+                        </button>
 
-                <div class="text-[11px] text-slate-400 text-center flex items-center justify-center gap-1.5">
-                    <span>🛡️</span>
-                    <span>Pago 100% seguro protegido por Stripe</span>
-                </div>
+                        <!-- Botón Comprar / Pago Seguro (Stripe) -->
+                        <button 
+                            type="button" 
+                            id="btn-buy-stripe"
+                            data-listing-id="{{ listing.id }}"
+                            class="w-full py-3.5 bg-stripe-500 hover:bg-[#5b52e0] active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-stripe-500/10"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                            <span>Comprar con Stripe</span>
+                        </button>
+
+                        <div class="text-[11px] text-slate-400 text-center flex items-center justify-center gap-1.5">
+                            <span>🛡️</span>
+                            <span>Pago 100% seguro protegido por Stripe</span>
+                        </div>
+                    {% endif %}
+                {% endif %}
             </div>
 
             <!-- Caja de Seguridad de la Universidad -->
@@ -179,7 +229,59 @@
 
 {% block scripts %}
 <script>
+    window.SESSION_TOKEN = '{{ session_token }}';
+
+    function getSessionToken() {
+        return window.SESSION_TOKEN || null;
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
+        // Gestión del click para contactar con el vendedor (Chat)
+        const btnContactSeller = document.getElementById("btn-contact-seller");
+        if (btnContactSeller) {
+            btnContactSeller.addEventListener("click", async () => {
+                const token = getSessionToken();
+                if (!token) {
+                    window.showToast("Inicia sesión para chatear con el vendedor", "warning");
+                    setTimeout(() => window.location.href = '/login', 1500);
+                    return;
+                }
+
+                window.showToast("Abriendo conversación...", "info");
+
+                try {
+                    const res = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({
+                            listingId: '{{ listing.id }}',
+                            initialMessage: "Hola, me interesa tu anuncio '{{ listing.title }}'"
+                        })
+                    });
+
+                    if (res.ok || res.status === 201) {
+                        const data = await res.json();
+                        window.showToast("¡Conversación iniciada!", "success");
+                        setTimeout(() => {
+                            window.location.href = `/chat/${data.id}`;
+                        }, 1000);
+                    } else if (res.status === 401) {
+                        window.showToast("Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.", "warning");
+                        setTimeout(() => window.location.href = '/login', 1500);
+                    } else {
+                        const errData = await res.json().catch(() => ({}));
+                        const errMsg = errData.message || "No se pudo iniciar la conversación.";
+                        window.showToast(errMsg, "error");
+                    }
+                } catch (err) {
+                    window.showToast("Error de conexión al iniciar el chat", "error");
+                }
+            });
+        }
+
         // Gestión del click de compra segura (Stripe)
         const stripeBtn = document.getElementById("btn-buy-stripe");
         if (stripeBtn) {
@@ -188,11 +290,17 @@
                 window.showToast("Iniciando pasarela de pago Stripe...", "info");
                 
                 try {
-                    const token = localStorage.getItem("token");
+                    const token = getSessionToken();
+                    if (!token) {
+                        window.showToast("Debes iniciar sesión para comprar", "warning");
+                        setTimeout(() => window.location.href = '/login', 1500);
+                        return;
+                    }
+
                     const res = await fetch(`/api/payments/checkout/${listingId}`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': token ? `Bearer ${token}` : '',
+                            'Authorization': 'Bearer ' + token,
                             'Content-Type': 'application/json'
                         }
                     });
@@ -216,6 +324,51 @@
                     window.showToast("Redirigiendo a pasarela segura de Stripe (Simulado)", "success");
                 }
             });
+        }
+
+        // Gestión del cambio de estado (Marcar como vendido / Poner a la venta)
+        const btnMarkAsSold = document.getElementById("btn-mark-as-sold");
+        const btnMarkAsActive = document.getElementById("btn-mark-as-active");
+
+        const updateListingStatus = async (btn, status) => {
+            const listingId = btn.getAttribute("data-listing-id");
+            window.showToast("Actualizando estado del anuncio...", "info");
+            
+            try {
+                const token = getSessionToken();
+                if (!token) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                const res = await fetch(`/api/listings/${listingId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status })
+                });
+
+                if (res.ok) {
+                    window.showToast("Estado actualizado correctamente", "success");
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    const errData = await res.json().catch(() => ({}));
+                    const errMsg = errData.message || "Error al actualizar el estado";
+                    window.showToast(errMsg, "error");
+                }
+            } catch (err) {
+                window.showToast("Error de conexión al actualizar el estado", "error");
+            }
+        };
+
+        if (btnMarkAsSold) {
+            btnMarkAsSold.addEventListener("click", () => updateListingStatus(btnMarkAsSold, "sold"));
+        }
+
+        if (btnMarkAsActive) {
+            btnMarkAsActive.addEventListener("click", () => updateListingStatus(btnMarkAsActive, "active"));
         }
     });
 </script>

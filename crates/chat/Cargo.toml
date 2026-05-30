@@ -21,3 +21,7 @@ async-trait = "0.1"
 common = { path = "../common" }
 users = { path = "../users" }
 listings = { path = "../listings" }
+
+[dev-dependencies]
+sqlx = { workspace = true, features = ["macros", "migrate"] }
+rust_decimal = { workspace = true }

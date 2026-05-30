@@ -39,26 +39,44 @@ where
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        // Extract Authorization header
-        let auth_header = parts
+        // Try to get token from Authorization header first, then Cookie header
+        let token = if let Some(auth_header) = parts
             .headers
             .get(axum::http::header::AUTHORIZATION)
             .and_then(|value| value.to_str().ok())
-            .ok_or_else(|| AppError::Unauthorized("Cabecera Authorization no encontrada".to_string()))?;
-
-        // Check Bearer prefix
-        if !auth_header.starts_with("Bearer ") {
+        {
+            if !auth_header.starts_with("Bearer ") {
+                return Err(AppError::Unauthorized(
+                    "El token debe usar el formato Bearer".to_string(),
+                ));
+            }
+            auth_header[7..].to_string()
+        } else if let Some(cookie_header) = parts
+            .headers
+            .get(axum::http::header::COOKIE)
+            .and_then(|value| value.to_str().ok())
+        {
+            cookie_header
+                .split(';')
+                .map(|c| c.trim())
+                .find(|c| c.starts_with("session_token="))
+                .map(|c| c["session_token=".len()..].to_string())
+                .ok_or_else(|| {
+                    AppError::Unauthorized(
+                        "Cabecera Authorization o cookie session_token no encontrada".to_string(),
+                    )
+                })?
+        } else {
             return Err(AppError::Unauthorized(
-                "El token debe usar el formato Bearer".to_string(),
+                "Cabecera Authorization o cookie session_token no encontrada".to_string(),
             ));
-        }
+        };
 
-        let token = &auth_header[7..];
         let jwt_secret = String::from_ref(state);
 
         // Decode and validate JWT
         let token_data = decode::<Claims>(
-            token,
+            &token,
             &DecodingKey::from_secret(jwt_secret.as_bytes()),
             &Validation::default(),
         )

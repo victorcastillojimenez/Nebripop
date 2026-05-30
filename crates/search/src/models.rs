@@ -89,7 +89,7 @@ impl SearchFilters {
 
     /// Get the per_page value clamped to max 100.
     pub fn limit(&self) -> i64 {
-        self.per_page.min(100).max(1)
+        self.per_page.clamp(1, 100)
     }
 }
 

@@ -1,0 +1,142 @@
+<!-- crates/api/templates/users/my_profile.html -->
+{% extends "base.html" %}
+
+{% block title %}Mi Perfil - Nebripop{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8 font-sans">
+    
+    <!-- Ficha de Usuario Superior Premium (Mi Dashboard) -->
+    <div class="relative bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-10 mb-12 flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden">
+        <!-- Decoración trasera premium -->
+        <div class="absolute top-0 right-0 w-32 h-32 bg-brand-500/5 rounded-bl-full"></div>
+        
+        <div class="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+            <!-- Avatar gigante con inicial -->
+            <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-brand-100 text-brand-600 font-display font-black text-4xl flex items-center justify-center border-4 border-brand-50 shadow-md">
+                {{ user.display_name.chars().next().unwrap() }}
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
+                    <h1 class="font-display font-black text-2xl sm:text-3xl text-slate-800 tracking-tight">{{ user.display_name }}</h1>
+                    <span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                        ✨ Mi Cuenta
+                    </span>
+                </div>
+                
+                <!-- Email privado -->
+                <p class="text-sm font-medium text-slate-400 flex items-center justify-center md:justify-start gap-1">
+                    ✉️ {{ current_user.as_ref().unwrap().email }}
+                </p>
+
+                <!-- Datos rápidos de reputación -->
+                <div class="flex flex-wrap justify-center md:justify-start gap-6 text-sm text-slate-500 font-semibold">
+                    <span class="flex items-center gap-1.5">
+                        ⭐ <span class="text-slate-800 font-bold">{{ user.rating_avg }}</span> ({{ user.total_ratings }} valoraciones)
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        📦 <span class="text-slate-800 font-bold">{{ user_listings.len() }}</span> anuncios activos
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Acciones del perfil privado -->
+        <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <a 
+                href="/listings/create" 
+                id="btn-create-listing-profile"
+                class="flex items-center justify-center gap-2 px-5 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-2xl shadow-md shadow-brand-500/10 hover:shadow-lg transition-all duration-200 text-sm text-center"
+            >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Publicar nuevo anuncio
+            </a>
+            
+            <a 
+                href="/logout" 
+                id="btn-logout"
+                class="flex items-center justify-center gap-2 px-5 py-3 bg-slate-50 border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-100 text-slate-600 font-bold rounded-2xl transition-all duration-200 text-sm text-center"
+            >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                </svg>
+                Cerrar sesión
+            </a>
+        </div>
+    </div>
+
+    <!-- Contenido en Columnas (Mis Anuncios a la Izquierda, Mis Valoraciones a la Derecha) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        
+        <!-- Listado de Anuncios Activos (2/3 de ancho) -->
+        <div class="lg:col-span-2 space-y-6">
+            <h2 class="font-display font-extrabold text-2xl text-slate-800 border-b border-slate-100 pb-3">Mis anuncios activos</h2>
+            
+            {% if user_listings.is_empty() %}
+                <div class="text-center py-16 bg-white rounded-3xl border border-slate-100 p-8 space-y-6">
+                    <span class="text-5xl block animate-bounce">🎈</span>
+                    <div class="space-y-2">
+                        <h3 class="font-display font-bold text-lg text-slate-700">Aún no tienes ningún anuncio publicado</h3>
+                        <p class="text-sm text-slate-400 max-w-sm mx-auto">Vende lo que ya no usas y sácate un dinero extra en el campus.</p>
+                    </div>
+                    <a 
+                        href="/listings/create" 
+                        class="inline-block px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-2xl shadow-lg shadow-brand-500/10 hover:shadow-brand-500/25 transition-all text-sm"
+                    >
+                        Subir mi primer anuncio
+                    </a>
+                </div>
+            {% else %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {% for listing in user_listings %}
+                        {% include "partials/listing_card.html" %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Valoraciones Recibidas (1/3 de ancho) -->
+        <div class="space-y-6">
+            <h2 class="font-display font-extrabold text-2xl text-slate-800 border-b border-slate-100 pb-3">Mis valoraciones recibidas</h2>
+            
+            {% if ratings.is_empty() %}
+                <div class="text-center py-12 bg-white rounded-3xl border border-slate-100 p-8 space-y-4">
+                    <span class="text-4xl">⭐</span>
+                    <h3 class="font-display font-bold text-slate-700">Sin valoraciones aún</h3>
+                    <p class="text-xs text-slate-400 max-w-xs mx-auto">Cuando completes compras o ventas en Nebripop, tus opiniones aparecerán aquí.</p>
+                </div>
+            {% else %}
+                <div class="space-y-4">
+                    {% for rating in ratings %}
+                        <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between">
+                                <span class="font-display font-bold text-sm text-slate-700">{{ rating.reviewer_name }}</span>
+                                <span class="text-xs text-slate-400">{{ rating.created_at.format("%d/%m/%Y") }}</span>
+                            </div>
+                            
+                            <!-- Estrellas doradas -->
+                            <div class="flex gap-0.5 text-amber-400 text-xs">
+                                {% for star in 1..=5 %}
+                                    {% if star <= rating.score %}
+                                        ★
+                                    {% else %}
+                                        ☆
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            <p class="text-xs text-slate-500 leading-relaxed font-sans italic">
+                                "{{ rating.comment }}"
+                            </p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}

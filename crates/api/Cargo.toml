@@ -11,6 +11,7 @@ listings = { path = "../listings" }
 ratings = { path = "../ratings" }
 favorites = { path = "../favorites" }
 geo = { path = "../geo" }
+payments = { path = "../payments" }
 search = { path = "../search" }
 axum = { workspace = true }
 tokio = { workspace = true }
@@ -27,3 +28,12 @@ jsonwebtoken = { workspace = true }
 dotenvy = { workspace = true }
 dashmap = { workspace = true }
 tower = { workspace = true }
+askama = { workspace = true }
+askama_axum = { workspace = true }
+rust_decimal = { workspace = true }
+axum-extra = { version = "0.9", features = ["cookie"] }
+validator = { workspace = true }
+cookie = "0.18"
+
+
+
