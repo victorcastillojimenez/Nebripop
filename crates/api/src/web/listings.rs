@@ -1,7 +1,7 @@
 use askama_axum::IntoResponse;
 use askama::Template;
-use axum::{extract::{State, Query}, response::Html};
-use axum_extra::extract::CookieJar;
+use axum::{extract::State, response::Html};
+use axum_extra::extract::{CookieJar, Query};
 use rust_decimal::Decimal;
 use crate::app_state::AppState;
 use users::dtos::UserDto;
