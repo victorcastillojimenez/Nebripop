@@ -14,8 +14,7 @@ use common::auth::AuthUser;
 #[derive(Deserialize)]
 pub struct ListingsQuery {
     pub category: Option<String>,
-    #[serde(default)]
-    pub condition: Option<Vec<String>>,
+    pub condition: Option<String>,
     pub min_price: Option<String>,
     pub max_price: Option<String>,
     pub sort: Option<String>,
@@ -61,10 +60,11 @@ pub async fn listings_handler(
         .unwrap_or_default();
 
     let category_filter = query.category.as_deref().filter(|s| !s.is_empty());
-    // Pass all selected conditions (multiple checkboxes) to the repository.
-    let condition_filter: Option<Vec<String>> = query.condition.as_ref()
-        .filter(|v| !v.is_empty())
-        .map(|v| v.clone());
+    // Convert comma-separated condition string (e.g. "new,like_new") to Vec for the repository.
+    let condition_filter: Option<Vec<String>> = query.condition
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.split(',').map(String::from).collect());
     let condition_value = condition_filter.as_deref();
     // Parse optional price range from string parameters.
     let min_price = query.min_price.as_ref()
@@ -113,7 +113,11 @@ pub async fn listings_handler(
         .and_then(|s| s.parse::<f64>().ok())
         .filter(|&v| v > 0.0);
 
-    let selected_conditions = query.condition.unwrap_or_default();
+    let selected_conditions: Vec<String> = query.condition
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.split(',').map(String::from).collect())
+        .unwrap_or_default();
 
     let template = ListingsTemplate {
         current_user,

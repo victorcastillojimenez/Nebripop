@@ -77,19 +77,20 @@
         <!-- Estado del Producto -->
         <div class="space-y-3">
             <h4 class="font-display font-semibold text-sm text-slate-700 uppercase tracking-wider">Estado del producto</h4>
+            <input type="hidden" id="condition-input" name="condition" value="">
             <div class="space-y-2">
                 <label class="flex items-center gap-2.5 text-sm text-slate-600 hover:text-brand-500 cursor-pointer group">
-                    <input type="checkbox" name="condition" value="new" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
+                    <input type="checkbox" data-condition="new" class="condition-checkbox w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
                         {% if filters::contains(selected_conditions, "new") %}checked{% endif %}>
                     <span>Nuevo (Precintado)</span>
                 </label>
                 <label class="flex items-center gap-2.5 text-sm text-slate-600 hover:text-brand-500 cursor-pointer group">
-                    <input type="checkbox" name="condition" value="like_new" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
+                    <input type="checkbox" data-condition="like_new" class="condition-checkbox w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
                         {% if filters::contains(selected_conditions, "like_new") %}checked{% endif %}>
                     <span>Como nuevo (Apenas usado)</span>
                 </label>
                 <label class="flex items-center gap-2.5 text-sm text-slate-600 hover:text-brand-500 cursor-pointer group">
-                    <input type="checkbox" name="condition" value="used" class="w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
+                    <input type="checkbox" data-condition="used" class="condition-checkbox w-4 h-4 text-brand-500 border-slate-300 focus:ring-brand-500/20 rounded"
                         {% if filters::contains(selected_conditions, "used") %}checked{% endif %}>
                     <span>Usado (Con marcas de desgaste)</span>
                 </label>
@@ -106,3 +107,28 @@
         </button>
     </form>
 </aside>
+
+<script>
+(function() {
+    var hiddenInput = document.getElementById('condition-input');
+    var checkboxes = document.querySelectorAll('.condition-checkbox');
+
+    function updateConditionInput() {
+        var values = [];
+        checkboxes.forEach(function(cb) {
+            if (cb.checked) {
+                values.push(cb.getAttribute('data-condition'));
+            }
+        });
+        hiddenInput.value = values.join(',');
+    }
+
+    // Initialize from the current state (preserves server-rendered checked state)
+    updateConditionInput();
+
+    // Update whenever a checkbox changes
+    checkboxes.forEach(function(cb) {
+        cb.addEventListener('change', updateConditionInput);
+    });
+})();
+</script>

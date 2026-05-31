@@ -21,7 +21,7 @@ pub struct SearchQuery {
     pub min_price: Option<f64>,
     #[serde(default, deserialize_with = "deserialize_optional_float")]
     pub max_price: Option<f64>,
-    pub condition: Option<Vec<String>>,
+    pub condition: Option<String>,
     pub page: Option<i64>,
 }
 
@@ -132,7 +132,11 @@ pub async fn search_handler(
         selected_category: params.category,
         min_price: params.min_price,
         max_price: params.max_price,
-        selected_conditions: params.condition.unwrap_or_default(),
+        selected_conditions: params.condition
+            .as_deref()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.split(',').map(String::from).collect())
+            .unwrap_or_default(),
     };
 
     template.render()
