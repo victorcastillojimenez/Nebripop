@@ -63,8 +63,13 @@ impl AppState {
         let stripe_secret_key = std::env::var("STRIPE_SECRET_KEY")
             .map_err(|_| "STRIPE_SECRET_KEY must be set".to_string())?;
 
-        let stripe_webhook_secret = std::env::var("STRIPE_WEBHOOK_SECRET")
-            .map_err(|_| "STRIPE_WEBHOOK_SECRET must be set".to_string())?;
+        let stripe_webhook_secret = match std::env::var("STRIPE_WEBHOOK_SECRET") {
+            Ok(val) if !val.is_empty() => val,
+            _ => {
+                tracing::warn!("STRIPE_WEBHOOK_SECRET no está configurada — el webhook de Stripe rechazará todas las notificaciones. Configúrala con un valor válido de Stripe CLI.");
+                String::new()
+            }
+        };
 
         let user_repo = UserRepository::new(pool.clone());
         let conversation_repo = ConversationRepository::new(pool.clone());

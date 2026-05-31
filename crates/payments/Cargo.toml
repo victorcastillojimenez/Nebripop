@@ -15,21 +15,11 @@ thiserror.workspace = true
 tracing.workspace = true
 validator.workspace = true
 async-trait.workspace = true
-hmac.workspace = true
-sha2.workspace = true
-hex.workspace = true
-reqwest.workspace = true
 rust_decimal.workspace = true
-subtle.workspace = true
+
+# Stripe SDK — gestiona la comunicación con Stripe API y verifica webhooks
+async-stripe = { version = "0.38", features = ["runtime-tokio-hyper", "webhook-events"] }
 
 common = { path = "../common" }
 users = { path = "../users" }
 listings = { path = "../listings" }
-
-[dev-dependencies]
-sqlx = { workspace = true, features = ["macros", "migrate"] }
-rust_decimal = { workspace = true }
-hex = { workspace = true }
-hmac = { workspace = true }
-sha2 = { workspace = true }
-subtle = { workspace = true }

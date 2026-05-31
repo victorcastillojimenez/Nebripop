@@ -1,33 +1,26 @@
 use async_trait::async_trait;
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
-use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
 use crate::errors::PaymentError;
 use crate::ports::StripePort;
 
-type HmacSha256 = Hmac<Sha256>;
-
-/// Adapter for the Stripe API using direct HTTP calls.
+/// Adapter for the Stripe API using the `async-stripe` SDK.
+///
+/// Handles PaymentIntent creation and webhook signature verification
+/// via the official Stripe Rust library.
 #[derive(Clone)]
 pub struct StripeAdapter {
-    secret_key: String,
+    client: stripe::Client,
     webhook_secret: String,
-    http_client: reqwest::Client,
 }
 
 impl StripeAdapter {
     pub fn new(secret_key: String, webhook_secret: String) -> Self {
+        let client = stripe::Client::new(&secret_key);
         Self {
-            secret_key,
+            client,
             webhook_secret,
-            http_client: reqwest::Client::new(),
         }
-    }
-
-    fn auth_header_value(&self) -> String {
-        format!("Bearer {}", self.secret_key)
     }
 }
 
@@ -41,57 +34,50 @@ impl StripePort for StripeAdapter {
         buyer_id: Uuid,
         idempotency_key: Uuid,
     ) -> Result<(String, String), PaymentError> {
-        let metadata = serde_json::json!({
-            "listing_id": listing_id.to_string(),
-            "buyer_id": buyer_id.to_string(),
-        });
+        // Build metadata for traceability
+        let mut metadata: stripe::Metadata = std::collections::HashMap::new();
+        metadata.insert("listing_id".to_string(), listing_id.to_string());
+        metadata.insert("buyer_id".to_string(), buyer_id.to_string());
 
-        let params = serde_json::json!({
-            "amount": amount_cents,
-            "currency": currency,
-            "metadata": metadata,
-            "automatic_payment_methods": {
-                "enabled": true
-            }
-        });
+        // Parse currency string to stripe::Currency
+        let stripe_currency: stripe::Currency = serde_json::from_value(
+            serde_json::Value::String(currency.to_lowercase()),
+        )
+        .map_err(|e| {
+            PaymentError::StripeError(format!("Moneda no soportada '{}': {}", currency, e))
+        })?;
 
-        let response = self
-            .http_client
-            .post("https://api.stripe.com/v1/payment_intents")
-            .header("Authorization", self.auth_header_value())
-            .header("Content-Type", "application/json")
-            .header("Idempotency-Key", idempotency_key.to_string())
-            .json(&params)
-            .send()
-            .await
-            .map_err(|e| PaymentError::StripeError(format!("Error de conexión con Stripe: {}", e)))?;
+        // Build the CreatePaymentIntent parameters
+        let mut params = stripe::CreatePaymentIntent::new(amount_cents, stripe_currency);
+        params.metadata = Some(metadata);
+        params.automatic_payment_methods = Some(
+            stripe::CreatePaymentIntentAutomaticPaymentMethods {
+                enabled: true,
+                ..Default::default()
+            },
+        );
 
-        let status = response.status();
-        let body: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|e| PaymentError::StripeError(format!("Error al parsear respuesta de Stripe: {}", e)))?;
+        // Clone the client with an idempotent strategy to prevent duplicate charges
+        // on network retries. The idempotency key is the payment_id UUID.
+        let idempotent_client = self
+            .client
+            .clone()
+            .with_strategy(stripe::RequestStrategy::Idempotent(
+                idempotency_key.to_string(),
+            ));
 
-        if !status.is_success() {
-            let error_msg = body
-                .get("error")
-                .and_then(|e| e.get("message"))
-                .and_then(|m| m.as_str())
-                .unwrap_or("Error desconocido de Stripe");
-            return Err(PaymentError::StripeError(error_msg.to_string()));
-        }
+        // Create the PaymentIntent via the Stripe API
+        let payment_intent = stripe::PaymentIntent::create(
+            &idempotent_client,
+            params,
+        )
+        .await
+        .map_err(|e| {
+            PaymentError::StripeError(format!("Error al crear PaymentIntent: {}", e))
+        })?;
 
-        let intent_id = body
-            .get("id")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| PaymentError::StripeError("ID de PaymentIntent no encontrado en respuesta".to_string()))?
-            .to_string();
-
-        let client_secret = body
-            .get("client_secret")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| PaymentError::StripeError("client_secret no encontrado en respuesta".to_string()))?
-            .to_string();
+        let intent_id = payment_intent.id.to_string();
+        let client_secret = payment_intent.client_secret.unwrap_or_default();
 
         Ok((intent_id, client_secret))
     }
@@ -101,53 +87,22 @@ impl StripePort for StripeAdapter {
         payload: &[u8],
         signature_header: &str,
     ) -> Result<String, PaymentError> {
-        // Parse the Stripe-Signature header
-        let mut expected_signature: Option<String> = None;
-        let mut expected_timestamp: Option<i64> = None;
-
-        for part in signature_header.split(',') {
-            let part = part.trim();
-            if let Some(value) = part.strip_prefix("t=") {
-                expected_timestamp = value.parse::<i64>().ok();
-            } else if let Some(value) = part.strip_prefix("v1=") {
-                expected_signature = Some(value.to_string());
-            }
-        }
-
-        let signature = expected_signature
-            .ok_or(PaymentError::InvalidSignature)?;
-
-        let timestamp = expected_timestamp
-            .ok_or(PaymentError::InvalidSignature)?;
-
-        // Construct the signed payload string: timestamp + "." + payload
-        let signed_payload = format!("{}.{}", timestamp, std::str::from_utf8(payload).unwrap_or_default());
-
-        // Compute HMAC-SHA256
-        let mut mac = HmacSha256::new_from_slice(self.webhook_secret.as_bytes())
+        // Convert payload bytes to string for Stripe SDK
+        let payload_str = std::str::from_utf8(payload)
             .map_err(|_| PaymentError::InvalidSignature)?;
 
-        mac.update(signed_payload.as_bytes());
-        let computed = hex::encode(mac.finalize().into_bytes());
+        // Use Stripe SDK's built-in webhook verification
+        let event = stripe::Webhook::construct_event(
+            payload_str,
+            signature_header,
+            &self.webhook_secret,
+        )
+        .map_err(|e| {
+            tracing::error!("Error verificando firma de webhook de Stripe: {:?}", e);
+            PaymentError::InvalidSignature
+        })?;
 
-        // Constant-time comparison to prevent timing attacks
-        if computed.as_bytes().ct_eq(signature.as_bytes()).into() {
-            // Signature is valid, proceed
-        } else {
-            tracing::error!("Firma de webhook de Stripe inválida");
-            return Err(PaymentError::InvalidSignature);
-        }
-
-        // Parse the event type from the payload
-        let event: serde_json::Value = serde_json::from_slice(payload)
-            .map_err(|_| PaymentError::InvalidSignature)?;
-
-        let event_type = event
-            .get("type")
-            .and_then(|v| v.as_str())
-            .ok_or(PaymentError::InvalidSignature)?
-            .to_string();
-
-        Ok(event_type)
+        // Event type implements Display to return the string representation
+        Ok(event.type_.to_string())
     }
 }
