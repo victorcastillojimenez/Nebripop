@@ -23,12 +23,15 @@ pub async fn list_listings_handler(
     let per_page = params.per_page.clamp(1, 100);
     let page = params.page.max(0);
     let category = params.category.as_deref();
-    let condition = params.condition.as_deref();
+    // Convert single condition to a Vec for the multi‑condition trait
+    let conditions: Option<Vec<String>> = params.condition.map(|c| vec![c]);
+    let condition = conditions.as_deref();
     let min_price = params.min_price;
     let max_price = params.max_price;
+    let sort = params.sort.as_deref();
 
     let (listings, total) = repo
-        .find_all_paginated(page, per_page, category, condition, min_price, max_price)
+        .find_all_paginated(page, per_page, category, condition, min_price, max_price, sort)
         .await
         .map_err(map_listing_error)?;
 

@@ -32,7 +32,7 @@ pub async fn home_handler(
         .map(|c| c.value().to_string())
         .unwrap_or_default();
 
-    let recent_listings = match state.listing_repo.find_all_paginated(0, 12, None, None, None, None).await {
+    let recent_listings = match state.listing_repo.find_all_paginated(0, 12, None, None, None, None, None).await {
         Ok((listings, _)) => listings
             .iter()
             .map(ListingSummaryDto::from_listing)

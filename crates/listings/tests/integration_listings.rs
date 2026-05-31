@@ -388,7 +388,7 @@ async fn given_listings_when_find_all_paginated_then_returns_active_only(pool: P
     )
     .await; // Should NOT appear in active listings
 
-    let result = repo.find_all_paginated(0, 20, None, None, None, None).await;
+    let result = repo.find_all_paginated(0, 20, None, None, None, None, None).await;
     assert!(result.is_ok(), "List should succeed");
 
     let (listings, total) = result.unwrap();
@@ -475,7 +475,7 @@ async fn given_category_filter_when_find_all_paginated_then_filters_correctly(po
     )
     .await;
 
-    let result = repo.find_all_paginated(0, 20, Some("deportes"), None, None, None).await;
+    let result = repo.find_all_paginated(0, 20, Some("deportes"), None, None, None, None).await;
     assert!(result.is_ok(), "Category filter should succeed");
 
     let (listings, total) = result.unwrap();
@@ -534,8 +534,10 @@ async fn given_condition_filter_when_find_all_paginated_then_filters_correctly(p
     )
     .await;
 
+    // ── Single condition filters ───────────────────────────────
+
     // Filter by 'new'
-    let result = repo        .find_all_paginated(0, 20, None, Some("new"), None, None).await;
+    let result = repo.find_all_paginated(0, 20, None, Some(&[String::from("new")][..]), None, None, None).await;
     assert!(result.is_ok(), "Condition filter should succeed");
 
     let (listings, total) = result.unwrap();
@@ -544,7 +546,7 @@ async fn given_condition_filter_when_find_all_paginated_then_filters_correctly(p
     assert_eq!(listings[0].condition.as_str(), "new");
 
     // Filter by 'used'
-    let result = repo.find_all_paginated(0, 20, None, Some("used"), None, None).await;
+    let result = repo.find_all_paginated(0, 20, None, Some(&[String::from("used")][..]), None, None, None).await;
     assert!(result.is_ok(), "Condition filter should succeed");
 
     let (listings, total) = result.unwrap();
@@ -553,7 +555,7 @@ async fn given_condition_filter_when_find_all_paginated_then_filters_correctly(p
     assert_eq!(listings[0].condition.as_str(), "used");
 
     // Filter by 'like_new'
-    let result = repo.find_all_paginated(0, 20, None, Some("like_new"), None, None).await;
+    let result = repo.find_all_paginated(0, 20, None, Some(&[String::from("like_new")][..]), None, None, None).await;
     assert!(result.is_ok(), "Condition filter should succeed");
 
     let (listings, total) = result.unwrap();
@@ -562,7 +564,7 @@ async fn given_condition_filter_when_find_all_paginated_then_filters_correctly(p
     assert_eq!(listings[0].condition.as_str(), "like_new");
 
     // Combined filter: condition='new' + category='tecnologia'
-    let result = repo.find_all_paginated(0, 20, Some("tecnologia"), Some("new"), None, None).await;
+    let result = repo.find_all_paginated(0, 20, Some("tecnologia"), Some(&[String::from("new")][..]), None, None, None).await;
     assert!(result.is_ok(), "Combined filter should succeed");
 
     let (listings, total) = result.unwrap();
@@ -570,10 +572,17 @@ async fn given_condition_filter_when_find_all_paginated_then_filters_correctly(p
     assert_eq!(listings[0].title, "Teléfono nuevo");
 
     // Combined filter that should return empty
-    let result = repo.find_all_paginated(0, 20, Some("hogar"), Some("new"), None, None).await;
+    let result = repo.find_all_paginated(0, 20, Some("hogar"), Some(&[String::from("new")][..]), None, None, None).await;
     assert!(result.is_ok(), "Combined filter should succeed");
 
     let (listings, total) = result.unwrap();
     assert_eq!(total, 0, "No listings match 'hogar' + 'new'");
     assert!(listings.is_empty());
+
+    // Multi-condition filter: new OR like_new
+    let result = repo.find_all_paginated(0, 20, None, Some(&[String::from("new"), String::from("like_new")][..]), None, None, None).await;
+    assert!(result.is_ok(), "Multi‑condition filter should succeed");
+    let (listings, total) = result.unwrap();
+    assert_eq!(total, 2, "2 listings match 'new' or 'like_new'");
+    assert_eq!(listings.len(), 2);
 }
