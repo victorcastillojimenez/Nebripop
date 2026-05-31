@@ -18,6 +18,7 @@ pub struct ListingsQuery {
     pub condition: Option<Vec<String>>,
     pub min_price: Option<String>,
     pub max_price: Option<String>,
+    pub sort: Option<String>,
     pub page: Option<i64>,
 }
 
@@ -39,6 +40,8 @@ pub struct ListingsTemplate {
     pub max_price: Option<f64>,
     /// The currently selected condition values (checkbox state).
     pub selected_conditions: Vec<String>,
+    /// Current sort order.
+    pub sort: Option<String>,
 }
 
 pub async fn listings_handler(
@@ -58,11 +61,11 @@ pub async fn listings_handler(
         .unwrap_or_default();
 
     let category_filter = query.category.as_deref().filter(|s| !s.is_empty());
-    // Take the first condition value from the list (supports multiple checkboxes,
-    // though the repository accepts a single condition for now).
-    let condition_value = query.condition.as_ref()
-        .and_then(|v| v.first().map(|s| s.as_str()))
-        .filter(|s| !s.is_empty());
+    // Pass all selected conditions (multiple checkboxes) to the repository.
+    let condition_filter: Option<Vec<String>> = query.condition.as_ref()
+        .filter(|v| !v.is_empty())
+        .map(|v| v.clone());
+    let condition_value = condition_filter.as_deref();
     // Parse optional price range from string parameters.
     let min_price = query.min_price.as_ref()
         .and_then(|s| s.parse::<f64>().ok())
@@ -72,6 +75,7 @@ pub async fn listings_handler(
         .and_then(|s| s.parse::<f64>().ok())
         .filter(|&v| v > 0.0)
         .map(|v| Decimal::from_f64_retain(v).unwrap_or_default());
+    let sort = query.sort.as_deref().filter(|s| !s.is_empty());
 
     let (listings_dto, total_items) = match state.listing_repo.find_all_paginated(
         page_index,
@@ -80,6 +84,7 @@ pub async fn listings_handler(
         condition_value,
         min_price,
         max_price,
+        sort,
     ).await {
         Ok((listings, total)) => {
             let dtos = listings
@@ -124,6 +129,7 @@ pub async fn listings_handler(
         min_price: min_price_display,
         max_price: max_price_display,
         selected_conditions,
+        sort: query.sort.clone(),
     };
     Html(template.render().unwrap())
 }

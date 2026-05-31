@@ -80,6 +80,9 @@ pub struct PaginationParams {
     /// Optional maximum price filter
     pub max_price: Option<Decimal>,
 
+    /// Optional sort order (recent, price_asc, price_desc)
+    pub sort: Option<String>,
+
     /// Optional seller ID filter
     pub seller_id: Option<Uuid>,
 }

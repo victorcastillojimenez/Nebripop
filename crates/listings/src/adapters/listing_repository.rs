@@ -44,6 +44,7 @@ struct ListingImageRow {
 enum FilterValue {
     Text(String),
     Price(Decimal),
+    TextArray(Vec<String>),
 }
 
 /// Converts a DB row to domain Listing.
@@ -134,9 +135,10 @@ impl ListingRepository for ListingRepositoryImpl {
         page: i64,
         per_page: i64,
         category: Option<&str>,
-        condition: Option<&str>,
+        condition: Option<&[String]>,
         min_price: Option<Decimal>,
         max_price: Option<Decimal>,
+        sort: Option<&str>,
     ) -> Result<(Vec<Listing>, i64), ListingError> {
         let offset = page * per_page;
 
@@ -151,9 +153,11 @@ impl ListingRepository for ListingRepositoryImpl {
             where_clauses.push(format!("category = ${}", params.len() + 1));
             params.push(FilterValue::Text(cat.to_string()));
         }
-        if let Some(cond) = condition {
-            where_clauses.push(format!("condition = ${}", params.len() + 1));
-            params.push(FilterValue::Text(cond.to_string()));
+        if let Some(conds) = condition {
+            if !conds.is_empty() {
+                where_clauses.push(format!("condition = ANY(${})", params.len() + 1));
+                params.push(FilterValue::TextArray(conds.to_vec()));
+            }
         }
         if let Some(min) = min_price {
             where_clauses.push(format!("price >= ${}", params.len() + 1));
@@ -172,6 +176,13 @@ impl ListingRepository for ListingRepositoryImpl {
 
         let param_count = params.len();
 
+        // ── Determine ORDER BY clause ─────────────────────────────────
+        let order_clause = match sort {
+            Some("price_asc") => "ORDER BY price ASC",
+            Some("price_desc") => "ORDER BY price DESC",
+            _ => "ORDER BY created_at DESC",
+        };
+
         // ── COUNT query ──────────────────────────────────────────────
         let count_sql = format!(
             "SELECT COUNT(*)::int8 FROM listings WHERE status = 'active'{where_suffix}"
@@ -181,6 +192,7 @@ impl ListingRepository for ListingRepositoryImpl {
             match pv {
                 FilterValue::Text(s) => count_query = count_query.bind(s.as_str()),
                 FilterValue::Price(d) => count_query = count_query.bind(*d),
+                FilterValue::TextArray(v) => count_query = count_query.bind(v.as_slice()),
             }
         }
         let total: (i64,) = count_query.fetch_one(&self.pool).await.map_err(|e| {
@@ -195,8 +207,9 @@ impl ListingRepository for ListingRepositoryImpl {
                       city, created_at, updated_at
                FROM listings
                WHERE status = 'active'{where_suffix}
-               ORDER BY created_at DESC
+               {order_clause}
                LIMIT ${limit} OFFSET ${offset}"#,
+            order_clause = order_clause,
             limit = param_count + 1,
             offset = param_count + 2,
         );
@@ -206,6 +219,7 @@ impl ListingRepository for ListingRepositoryImpl {
             match pv {
                 FilterValue::Text(s) => select_query = select_query.bind(s.as_str()),
                 FilterValue::Price(d) => select_query = select_query.bind(*d),
+                FilterValue::TextArray(v) => select_query = select_query.bind(v.as_slice()),
             }
         }
         select_query = select_query.bind(per_page).bind(offset);
