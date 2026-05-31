@@ -282,47 +282,18 @@
             });
         }
 
-        // Gestión del click de compra segura (Stripe)
+        // Gestión del click de compra segura (Stripe) — redirige a la pasarela de pago
         const stripeBtn = document.getElementById("btn-buy-stripe");
         if (stripeBtn) {
             stripeBtn.addEventListener("click", async () => {
                 const listingId = stripeBtn.getAttribute("data-listing-id");
-                window.showToast("Iniciando pasarela de pago Stripe...", "info");
-                
-                try {
-                    const token = getSessionToken();
-                    if (!token) {
-                        window.showToast("Debes iniciar sesión para comprar", "warning");
-                        setTimeout(() => window.location.href = '/login', 1500);
-                        return;
-                    }
-
-                    const res = await fetch(`/api/payments/checkout/${listingId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': 'Bearer ' + token,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.checkout_url) {
-                            window.location.href = data.checkout_url;
-                        }
-                    } else if (res.status === 401) {
-                        window.showToast("Debes iniciar sesión para comprar", "warning");
-                        setTimeout(() => window.location.href = '/login', 1500);
-                    } else {
-                        // Mock fallback para testing
-                        window.showToast("Redirigiendo a pasarela segura de Stripe (Simulado)", "success");
-                        setTimeout(() => {
-                            window.showToast("¡Transacción completada con éxito!", "success");
-                        }, 2000);
-                    }
-                } catch (err) {
-                    window.showToast("Redirigiendo a pasarela segura de Stripe (Simulado)", "success");
+                const token = getSessionToken();
+                if (!token) {
+                    window.showToast("Debes iniciar sesión para comprar", "warning");
+                    setTimeout(() => window.location.href = '/login', 1500);
+                    return;
                 }
+                window.location.href = `/payments/checkout/${listingId}`;
             });
         }
 
